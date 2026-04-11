@@ -78,7 +78,7 @@ entry = {
         "path": "./plugins/memfold"
     },
     "policy": {
-        "installation": "AVAILABLE",
+        "installation": "INSTALLED_BY_DEFAULT",
         "authentication": "ON_USE"
     },
     "category": "Coding"
