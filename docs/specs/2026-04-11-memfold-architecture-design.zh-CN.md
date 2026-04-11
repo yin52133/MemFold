@@ -61,6 +61,22 @@ MemFold 是：
 
 核心系统不依赖 MCP，不直接嵌入某个 agent 运行时。宿主通过 skill、plugin、hook、script 或 CLI 命令与 MemFold 交互。
 
+### 3.7 敏感信息默认不入记忆
+
+MemFold 不应把密钥、token、cookie、私钥、助记词、密码、个人隐私信息、支付信息等敏感内容持久化到 boot、effective memory、wiki、observation 或 archive 正文中。
+
+如果运行时确实遇到敏感材料，系统只能：
+
+- 丢弃
+- 脱敏后保留摘要
+- 保留不含敏感正文的外部引用
+
+绝不允许把敏感原文直接写入长期记忆层。
+
+### 3.8 预算优先于“尽量全读”
+
+记忆系统的目标不是尽可能多读，而是在最小 token 成本下给出足够正确的上下文。只要当前回答已经有足够支撑，就不继续下钻。
+
 ## 4. 借鉴来源与边界
 
 本项目设计借鉴多个开源项目的架构思想。借鉴边界必须明确，避免把不同系统的不兼容假设混在一起。
@@ -109,7 +125,7 @@ MemFold 是：
 
 ### 5.1 Boot Layer
 
-启动时自动载入的最小记忆包，只包含稳定、低争议、高复用的信息。
+启动时自动载入的最小记忆包。它是从 stable memory 中按规则编译出来的加载视图，不是独立长期真相源。
 
 ### 5.2 Effective Memory
 
@@ -117,11 +133,17 @@ MemFold 是：
 
 ### 5.3 Observation
 
-从用户表达、工具调用、代码修改、验证结果、总结反思中抽取出的结构化事件，是 archive 和 effective memory 之间的中间层。
+从用户表达、工具调用、代码修改、验证结果中抽取出的结构化事件，是 archive 和 effective memory 之间的中间层。
 
 ### 5.4 Archive
 
-原始会话记录、阶段性日志、完整 transcript、工具原始输出等低层材料。长期保存，但默认不自动进入上下文。
+经安全清洗后的低层材料集合。它包含：
+
+- `archive summary`
+- `archive refs`
+- 必要时的 `raw transcript refs`
+
+其中 `raw transcript` 在 MemFold 中默认只以安全引用或安全片段形式存在，不作为无条件持久化的正文真相源。
 
 ### 5.5 Knowledge Wiki
 
@@ -135,15 +157,47 @@ MemFold 是：
 
 会话级载入模式，控制启动时默认读什么，以及后续是否允许自动扩展检索。
 
+### 5.8 Reflection Note
+
+Dreaming 或检索过程中产生的分析性反思、假设、推测与说明性注记。它可用于解释和调试，但默认不是 observation，也不能直接晋升为长期记忆。
+
+### 5.9 Autoload
+
+决定某条 stable memory 是否有资格参与 boot bundle 编译的加载属性。它不是记忆层级本身，而是一个装载资格标记。
+
+建议枚举：
+
+- `none`
+- `boot_user`
+- `boot_project`
+- `manual_only`
+
+### 5.10 User Profile
+
+用户级稳定画像，是 effective memory 的一个受控子集，用于表达语言偏好、风格偏好和长期硬约束。
+
+### 5.11 Project Card
+
+项目级稳定卡片，是 effective memory 的一个受控子集，用于表达项目身份、核心术语、关键入口和长期约束。
+
+### 5.12 Knowledge Lookup
+
+一种显式任务意图，表示当前需要查背景、概念、综述或外部知识，而不是继续当前行为决策。只有在这种意图下，wiki 和 archive summary 才允许更早参与检索。
+
 ## 6. 总体架构
 
-MemFold 采用五层结构：
+MemFold 的持久化主体采用四层结构：
 
-1. `Boot Layer`
-2. `Effective Memory Layer`
-3. `Observation Layer`
-4. `Archive Layer`
-5. `Knowledge Wiki Layer`
+1. `Effective Memory Layer`
+2. `Observation Layer`
+3. `Archive Layer`
+4. `Knowledge Wiki Layer`
+
+此外还有一个派生视图：
+
+- `Boot Layer`
+  - 仅用于安全启动和最小上下文加载
+  - 不与四个持久化主体层并列作为长期真相源
 
 配套两个横切子系统：
 
@@ -152,13 +206,31 @@ MemFold 采用五层结构：
 
 ### 6.1 架构摘要
 
-- `Boot Layer` 负责安全启动
 - `Effective Memory` 负责默认长期记忆读取
 - `Observation` 负责承接运行时事件与候选事实
-- `Archive` 负责全量追溯
+- `Archive` 负责安全清洗后的追溯材料与引用
 - `Knowledge Wiki` 负责面向主题的可浏览知识组织
+- `Boot Layer` 负责把 stable memory 编译成最小启动视图
 - `Dreaming` 负责整理、晋升、去重、降权和淘汰
 - `Autoresearch` 负责优化记忆系统自己的策略，不直接替代生产写入流程
+
+### 6.2 各层边界速览
+
+- `Effective Memory`
+  - 是什么：默认长期记忆层
+  - 不是什么：原始档案，不是自动生成的背景页
+- `Observation`
+  - 是什么：结构化证据层和候选事实层
+  - 不是什么：长期记忆本体，也不是模型自由反思
+- `Archive`
+  - 是什么：安全清洗后的追溯材料与引用
+  - 不是什么：无条件保存的完整原始对话正文
+- `Knowledge Wiki`
+  - 是什么：浏览和综述层
+  - 不是什么：默认行为指导层
+- `Boot Layer`
+  - 是什么：加载视图
+  - 不是什么：独立真相源
 
 ## 7. 启动加载策略
 
@@ -205,6 +277,16 @@ Boot Layer 不直接整段读取若干文件，而是读取一份编译后的 `b
 - `fresh`：2 到 6 条短记忆，约 60 到 180 tokens，硬上限 250
 - `sterile`：0
 
+Boot bundle 不应按“能塞多少塞多少”构建，而应按固定 slot 编译。建议第一版采用以下上限：
+
+- 语言偏好：最多 1 条
+- 风格偏好：最多 2 条
+- 用户硬约束：最多 3 条
+- 项目身份：最多 1 条
+- 项目术语映射：最多 5 对
+- 关键入口：最多 3 个
+- 项目长期约束：最多 3 条
+
 ### 7.3 会话模式
 
 MemFold 支持三种会话模式：
@@ -216,23 +298,72 @@ MemFold 支持三种会话模式：
 - `fresh`
   - 只加载最小 boot bundle
   - 默认不自动扩展读取项目历史
-  - 允许写 observation，但不自动晋升长期记忆
+  - 允许写 observation，但默认标记为 `non_promotable_until_review`
 - `sterile`
   - 不加载任何长期记忆
   - 不执行后台记忆检索
-  - 仅保留当前会话和必要的 raw archive
+  - 仅保留当前会话和必要的安全清洗后 archive 引用
+  - 默认不把该模式下产生的 observation 投入 dreaming 队列
 
-### 7.4 扩展读取触发器
+### 7.4 模式矩阵
+
+| 模式 | 读 boot | 自动扩展检索 | 写 observation | 进入 dreaming | 自动晋升 |
+|------|---------|--------------|----------------|---------------|----------|
+| `normal` | 是 | 是，受预算和门控限制 | 是 | 是 | 是 |
+| `fresh` | 是，最小集 | 否，除非显式请求 | 是，带 `origin_mode=fresh` | 默认否 | 否 |
+| `sterile` | 否 | 否 | 可选，仅安全清洗摘要 | 否 | 否 |
+
+### 7.5 扩展读取触发器
 
 只有以下场景允许额外读取记忆：
 
 - 用户显式要求继续上次工作
 - 用户提到“按我一贯习惯”“你之前记得”
-- 当前任务与项目、主题、实体高匹配
 - 当前上下文出现冲突或缺信息
 - 用户明确指出理解偏差，要求回溯对齐
+- 用户明确发起知识检索或背景查询
 
 除此之外，不自动继续扩展检索。
+
+说明：
+
+- “当前任务与项目、主题、实体高匹配”本身不构成自动扩展理由
+- 第一次自动扩展后，如果仍不足，原则上应优先缩小问题范围，而不是继续加旧记忆
+
+### 7.6 读取预算与源门控
+
+为了控制 token 污染，扩展读取必须带预算和源门控。
+
+建议规则：
+
+- 每次扩展读取，默认最多补充 `1` 组高置信结果
+- 单次自动补充的总预算建议不超过 `250` tokens
+- 每轮回答默认最多执行 `1` 次隐式扩展检索
+- 在未触发“继续上次工作/回溯对齐/知识检索”前，不自动读取 `archive`
+- 在未触发“知识检索”前，不自动读取 `wiki`
+- `QMD` 返回的结果不能直接原样进入 prompt，必须经 `retrieval` 层裁剪成 `summary/context/details`
+
+默认自动扩展优先级建议为：
+
+1. `effective memory`
+2. `observation`
+3. `project wiki summary`
+4. `archive summary`
+
+其中 `project wiki summary` 和 `archive summary` 只有在任务类型匹配时才允许启用。若第一次自动扩展后仍不足，第二次扩展应转为显式用户确认或显式子命令触发。
+
+### 7.7 Fresh 与 Sterile 的安全语义
+
+- `fresh`
+  - 允许最小用户画像进入上下文
+  - 允许显式请求时再查项目级记忆
+  - 不允许因为“相似查询”自动扩展旧记忆
+- `sterile`
+  - 任何长期记忆都不读
+  - 不做隐式回忆
+  - 只允许当前工作区事实和当前对话作为依据
+
+当用户明确要求“重新开始”“不要沿用之前判断”时，应优先切换到 `fresh` 或 `sterile`。
 
 ## 8. 状态模型
 
@@ -270,8 +401,28 @@ MemFold 支持三种会话模式：
 - `status = stable`
 - `autoload = boot_user` 或 `boot_project`
 - `confidence` 达到阈值
+- `trust_score` 达到阈值
+- `freshness_score` 达到阈值
 - 未过期
 - 不在冲突窗口中
+
+### 8.4 语义墓碑与复活约束
+
+为了防止错误记忆换一组 observation 或换一个 item id 后重新进入系统，MemFold 需要 claim-level 的墓碑机制。
+
+建议新增：
+
+- `claim_fingerprint`
+  - 代表语义级 claim 的稳定指纹
+- `tombstones`
+  - 记录被拒绝或被冻结的 claim
+- `supersedes/replaces`
+  - 标记新旧记忆之间的覆盖关系
+
+规则：
+
+- 与 tombstone 高相似的新 candidate 不能直接 promote
+- 若要恢复曾被拒绝的 claim，必须提供新的证据链和显式复核
 
 ## 9. 数据层设计
 
@@ -279,7 +430,7 @@ MemFold 采用混合存储：
 
 - `SQLite`：状态、索引控制、作业、关系、分数、锁
 - `Markdown`：effective memory、project card、user profile、knowledge wiki
-- `JSONL`：archive、raw events、session transcript 片段
+- `JSONL`：observations、archive、raw events、session transcript 片段
 
 ### 9.1 为什么不是纯 SQLite
 
@@ -318,6 +469,96 @@ QMD 适合作为检索引擎，不适合作为状态真相源。原因包括：
 - 替代状态表
 - 替代作业系统
 
+### 9.4 恢复、重建与并发原则
+
+为了避免数据库或索引损坏导致整体记忆不可用，必须坚持以下原则：
+
+- `SQLite` 只保存状态和可重建元数据，不保存唯一正文真相源
+- `Markdown + JSONL` 才是内容真相源
+- `QMD` 索引必须可全量重建
+- `SQLite` 状态库必须支持完整性检查与备份快照
+- 锁真相源统一为 `SQLite lease`
+- `runtime/locks/` 若存在，只能作为调试和 crash hint，不得与 SQLite 并列为锁真相源
+- 第一版默认仅支持本地磁盘，不支持网络文件系统或共享盘上的状态库
+
+这意味着即使 `memfold.db` 或 `QMD` 索引异常，系统也应该退化为“重建索引和状态”，而不是“记忆内容不可恢复”。
+
+### 9.5 跨存储提交与恢复协议
+
+一次记忆变更可能同时影响：
+
+- `Markdown/JSONL` 内容层
+- `SQLite` 状态层
+- `boot bundle` 派生层
+- `QMD` 索引层
+
+因此必须定义提交顺序，避免 split-brain。
+
+第一版建议采用：
+
+1. 在 `SQLite` 中创建 mutation 记录，状态为 `pending`
+2. 生成目标文件的新内容到临时文件
+3. 以原子 rename 方式替换目标文件
+4. 在 `SQLite` 中把 mutation 更新为 `applied_to_content`
+5. 生成 `pending_bundle_compile` 和 `pending_qmd_sync` 派生作业
+6. 派生作业成功后，将 mutation 标记为 `fully_applied`
+
+恢复规则：
+
+- 启动时先扫描 `pending`/`applied_to_content`/`pending_qmd_sync` 状态的 mutation
+- 若内容层已落地但索引未更新，则只补做派生步骤
+- 若 mutation 未完成且文件落地不完整，则回滚到上一个已知内容版本
+
+明确约束：
+
+- `boot bundle` 是派生物，不是可编辑真相源
+- `QMD` 索引是派生缓存，不是可编辑真相源
+- `repair` 的优先级是“内容层 -> SQLite 投影 -> 派生层”
+
+### 9.6 保留期与删除传播
+
+MemFold 必须定义 retention 与删除传播规则，避免“虽然不再自动加载，但原文永久残留”。
+
+第一版建议矩阵：
+
+- `boot bundle`
+  - 只保留当前编译结果
+  - 每次重编覆盖旧产物
+- `effective memory`
+  - 长期保留
+  - 被 supersede 后保留历史版本引用，但不自动加载旧版本
+- `observation`
+  - 默认保留较长时间，但应支持按项目、按会话、按状态清理
+- `archive`
+  - 默认保留，但必须支持按项目结束、人工删除、敏感命中、模式来源进行裁剪
+- `benchmark/experiment artifacts`
+  - 默认短期保留
+  - 不得无限增长
+- `backups`
+  - 必须有 prune 规则，不能无限累积
+
+删除或脱敏传播要求：
+
+- 删除 archive 条目时，必须同步清理 SQLite 索引记录
+- 脱敏后必须同步重建相关 QMD 索引
+- 被删除或脱敏的数据不得继续出现在 benchmark、backup、cache 中
+- `sterile` 模式下产生的临时材料必须可一键清理
+
+### 9.7 Observation 的真相源
+
+Observation 既是状态机输入，也是证据层，必须明确真相源。
+
+第一版建议：
+
+- observation 正文真相源：append-only JSONL
+- SQLite：observation 的投影、状态、索引、关系和分数
+
+这样可以保证：
+
+- DB 损坏时 observation 可重放
+- archive/raw events 与 observation 不混成同一层
+- experimentation 和 repair 可基于 observation log 回放
+
 ## 10. 建议目录结构
 
 ```text
@@ -343,6 +584,9 @@ MemFold/
 │   │       ├── wiki/
 │   │       ├── archive/
 │   │       └── sessions/
+│   │           └── <session-id>/
+│   │               ├── observations.jsonl
+│   │               └── raw-events.jsonl
 │   └── shared/
 ├── state/
 │   ├── memfold.db
@@ -363,6 +607,8 @@ MemFold/
 - `state/memfold.db` 是状态数据库
 - `qmd/` 是检索 sidecar 配置与 collection 管理
 - `runtime/` 是运行时辅助目录
+- `boot/bundle.md` 是派生物，不是人工维护的长期真相源
+- `runtime/locks/` 只是辅助诊断目录，不是锁真相源
 
 ## 11. SQLite 表设计
 
@@ -392,12 +638,20 @@ MemFold/
   - 用户正负反馈
 - `retrieval_events`
   - 记忆召回与使用记录
+- `mutations`
+  - 跨存储变更状态
 - `mode_sessions`
   - 会话模式与加载历史
+- `sessions`
+  - session 元数据
+- `lock_leases`
+  - 运行时租约锁
 - `strategy_experiments`
   - autoresearch 实验记录
 - `strategy_metrics`
   - 实验结果指标
+- `tombstones`
+  - 被拒绝 claim 的语义墓碑
 
 ### 11.2 关键字段建议
 
@@ -417,6 +671,38 @@ MemFold/
 - `expires_at`
 - `source_kind`
 - `file_path`
+- `content_hash`
+- `last_used_at`
+- `decision_version`
+- `redaction_status`
+- `claim_fingerprint`
+- `supersedes_id`
+- `pollution_risk_score`
+- `item_key`
+- `revision`
+- `created_at`
+- `updated_at`
+- `deleted_at`
+
+### 11.3 Memory Item 的最小单位
+
+第一版建议把一个 memory item 定义为：
+
+- 一个 Markdown 文件中的一个稳定 block
+
+该 block 必须拥有：
+
+- `item_key`
+- `title`
+- `summary/body`
+- 可选 metadata
+
+这意味着：
+
+- `file_path` 只负责定位文件
+- `item_key` 才负责定位文件内的逻辑记忆项
+- 手工编辑 Markdown 后，系统通过 `item_key + content_hash` 检测变化
+- `revision/supersedes_id/deleted_at` 负责版本链和墓碑链
 
 `observations`：
 
@@ -431,6 +717,12 @@ MemFold/
 - `confidence`
 - `importance`
 - `created_at`
+- `redaction_status`
+- `sensitivity_flags`
+- `origin_mode`
+- `promotable`
+- `evidence_kind`
+- `projection_version`
 
 `promotion_candidates`：
 
@@ -442,6 +734,65 @@ MemFold/
 - `promotion_score`
 - `decision`
 - `explanation`
+- `decision_version`
+- `claim_fingerprint`
+
+`mutations`：
+
+- `id`
+- `mutation_kind`
+- `scope_type`
+- `scope_id`
+- `target_ref`
+- `status`
+- `content_version_before`
+- `content_version_after`
+- `created_at`
+- `updated_at`
+
+`sessions`：
+
+- `id`
+- `scope_type`
+- `scope_id`
+- `origin_host`
+- `mode`
+- `started_at`
+- `ended_at`
+
+`lock_leases`：
+
+- `id`
+- `lock_key`
+- `owner`
+- `lease_until`
+- `heartbeat_at`
+- `idempotency_key`
+
+`tombstones`：
+
+- `id`
+- `claim_fingerprint`
+- `scope_type`
+- `scope_id`
+- `reason`
+- `evidence_ref`
+- `created_at`
+
+`dream_jobs`：
+
+- `id`
+- `scope_type`
+- `scope_id`
+- `job_kind`
+- `status`
+- `attempt`
+- `lock_key`
+- `created_at`
+- `applied_at`
+- `verified_at`
+- `failed_at`
+- `rollback_ref`
 
 ## 12. Observation 设计
 
@@ -453,6 +804,7 @@ Observation 是 MemFold 的核心中间层。
 - 让 dreaming 处理结构化事件，而不是直接处理大段 transcript
 - 为 effective memory 提供可追溯证据
 - 为 archive 提供更高层摘要入口
+- 作为可回放的结构化证据日志
 
 ### 12.2 Observation 的来源
 
@@ -462,9 +814,37 @@ Observation 是 MemFold 的核心中间层。
 - 测试/验证结果
 - 设计决策
 - 用户反馈
-- dreaming 过程中的反思
 
-### 12.3 Observation 不是长期记忆
+### 12.3 Observation 写入前的安全清洗
+
+Observation 在写入前必须经过安全清洗流程，至少包括：
+
+- 密钥与 token 模式识别
+- cookie、session、私钥、助记词识别
+- 明显的个人隐私信息识别
+- 长文本截断与摘要化
+- 将高风险原文替换为类型标签或外部引用
+
+如果无法确认内容是否敏感，默认不写入 observation 正文。
+
+### 12.4 Reflection Note 与 Observation 的边界
+
+以下内容只能进入 `reflection_note`，不能直接进入 observation：
+
+- 模型自己的猜测
+- dreaming 过程中的反思
+- 未绑定外部证据的总结
+- 检索路径解释
+
+`reflection_note` 默认：
+
+- `non_promotable`
+- `non_bootable`
+- 不参与 boot bundle 编译
+
+只有在补齐外部证据、验证结果或用户显式确认后，才允许转换为正式 observation。
+
+### 12.5 Observation 不是长期记忆
 
 Observation 默认不自动注入上下文。它必须经过：
 
@@ -486,10 +866,29 @@ MemFold 的检索路径必须严格分级。
 2. `Effective Memory`
 3. `QMD 索引摘要`
 4. `Observation`
-5. `Archive`
-6. `Raw transcript`
+5. `Archive summary`
+6. `Raw transcript refs`
 
-### 13.2 QMD 集成方式
+注意：
+
+- `QMD 索引摘要` 不是单一来源，而是 `retrieval` 层基于 source gating 选出的摘要
+- 默认情况下，`wiki` 和 `archive` 不应因为单次模糊搜索就早于 `observation` 进入上下文
+- `normal` 与 `fresh` 模式下，QMD 默认只查询 `effective` collection；`wiki/archive` 需要显式 intent 或显式二次确认
+
+### 13.2 显式知识检索路径
+
+当 intent 为 `knowledge_lookup` 时，可采用不同于默认续做路径的顺序：
+
+1. `Boot Layer`
+2. `Effective Memory`
+3. `Wiki summary`
+4. `Archive summary`
+5. `Observation`
+6. `Raw transcript refs`
+
+这一路径只适用于背景查阅和主题综述，不适用于默认行为决策。
+
+### 13.3 QMD 集成方式
 
 QMD 作为 sidecar search，主要负责：
 
@@ -497,6 +896,27 @@ QMD 作为 sidecar search，主要负责：
 - `wiki/` 目录索引
 - `archive/` 目录索引
 - 支持基于 path、topic、collection 的搜索
+
+QMD 的查询结果必须标注来源类型：
+
+- `effective`
+- `wiki`
+- `archive`
+
+并附带最少 metadata：
+
+- `source_type`
+- `updated_at`
+- `status_or_trust`
+- `scope`
+- `doc_id`
+- `content_hash`
+- `pointer`
+
+其中：
+
+- `doc_id` 是 QMD 索引文档的稳定标识
+- `pointer` 指向 `relative_path + line_range` 或等价定位信息
 
 QMD 不负责：
 
@@ -506,7 +926,7 @@ QMD 不负责：
 - 梦境作业调度
 - rejected/quarantine 管理
 
-### 13.3 Progressive Disclosure
+### 13.4 Progressive Disclosure
 
 检索输出分三层：
 
@@ -516,6 +936,16 @@ QMD 不负责：
   - 中等长度内容，适合补齐背景
 - `details`
   - 深度材料，仅在必要时展开
+
+### 13.5 Token 预算建议
+
+单轮检索建议预算：
+
+- `summary`：80 到 180 tokens
+- `context`：最多 300 tokens
+- `details`：仅在显式下钻时使用
+
+默认情况下，同一轮回答不应同时拼接多组 `context` 和 `details` 结果。
 
 ## 14. Dreaming 系统设计
 
@@ -567,6 +997,62 @@ Dreaming 可能输出三类结果：
 - 是否覆盖旧记忆
 - 是否存在冲突风险
 
+### 14.5 Dreaming 执行门控
+
+Dreaming 不能在每轮交互后立即运行。建议至少受以下门控约束：
+
+- 会话数阈值
+- 时间阈值
+- 待处理 observation 数量阈值
+- 当前不存在同类作业锁
+
+这样可以避免频繁整理造成的噪声放大和状态抖动。
+
+### 14.6 Dreaming 的输入约束
+
+Dreaming 的正式输入只能是：
+
+- `promotable = true` 的 observation
+- 安全清洗后的 archive 摘要
+- 已有 stable memory 的比较项
+
+Dreaming 不直接消费 `reflection_note`。
+
+### 14.7 Dreaming 状态机
+
+Dreaming 作业至少要经过以下状态：
+
+1. `queued`
+2. `clustered`
+3. `scored`
+4. `decided`
+5. `applied`
+6. `verified`
+7. `indexed_or_compiled`
+
+失败路径：
+
+- 任一阶段失败可进入 `failed`
+- 若已落库但验证失败，必须进入 `rolled_back`
+
+每个阶段要求：
+
+- `decided`
+  - 只产生决策，不直接修改正文真相源
+- `applied`
+  - 修改 Markdown、SQLite 状态与相关关系
+- `verified`
+  - 检查正文、状态、索引的一致性
+- `indexed_or_compiled`
+  - 触发必要的 QMD 重建和 boot bundle 重编
+
+必须保证：
+
+- 幂等
+- 可追踪
+- 可回滚
+- 不因单次失败污染 stable memory
+
 ## 15. 错误记忆隔离机制
 
 错误记忆污染是必须优先解决的问题。
@@ -613,6 +1099,21 @@ Knowledge Wiki 是浏览层，不是默认主记忆层。
 - 易过时但未标记 freshness 的事实
 - 单次 session 推理结果
 - 未验证的观察结论
+
+### 16.3 Wiki 的检索使用规则
+
+Wiki 只适合用于：
+
+- 项目背景说明
+- 术语解释
+- 主题综述
+- 外部知识查阅
+
+Wiki 不适合用于：
+
+- 直接指导当前轮行为决策
+- 覆盖 stable memory
+- 替代用户当前显式意图
 
 ## 17. 自我进化系统
 
@@ -668,6 +1169,50 @@ Autoresearch 不能直接在线改生产策略。策略变更必须通过：
 - 指标不退化
 
 后才能进入生产配置。
+
+### 17.6 Autoresearch 的数据边界
+
+Autoresearch 默认只处理：
+
+- 脱敏后的回放样本
+- 已标注 benchmark
+- 受控实验数据
+
+Autoresearch 不应直接把生产中的完整用户记忆正文拿去做自由试验，尤其不能把敏感或争议材料直接当训练样本反复重放。
+
+### 17.7 实验环境硬隔离
+
+`memfold experiment run` 必须运行在独立实验环境中，至少满足：
+
+- 使用只读内容快照
+- 使用独立的 SQLite 状态路径
+- 使用独立的 QMD collection 或索引路径
+- 不允许调用生产写入命令
+- 不允许修改生产 boot bundle
+- 不允许修改 live memory 文件
+
+策略从实验环境进入生产前，应经过显式 promote 流程，而不是由实验任务直接覆盖生产配置。
+
+### 17.8 指标硬门槛与软目标
+
+指标分为两类：
+
+- `hard gate`
+  - `false_memory_rate`
+  - `contradiction_rate`
+  - `boot_pollution_rate`
+- `soft objective`
+  - `useful_recall_at_k`
+  - `promotion_precision`
+  - `promotion_recall`
+  - `token_cost`
+  - `latency`
+
+规则：
+
+- 任一 `hard gate` 超阈值，策略不得进入生产
+- `soft objective` 只用于比较收益，不足以覆盖安全退化
+- 每次实验都必须记录样本量、基线版本和切片结果
 
 ## 18. 运行时形态
 
@@ -727,6 +1272,34 @@ MemFold 核心负责：
 - 索引协同
 - 自我进化评估
 
+### 19.3 宿主最小集成协议
+
+为了避免不同宿主各自发明一套错误接入方式，第一版应定义一个稳定的最小协议，至少包括：
+
+- `load(mode, scope, intent)`
+- `write_observation(scope, source_kind, summary, refs...)`
+- `feedback(target, verdict, reason)`
+- `search(scope, query, intent, budget)`
+- `dream_run(scope, trigger)`
+
+这样 Codex、Claude Code、OpenClaw 的 skill/plugin/hook 包装层都只需做薄转换。
+
+### 19.4 路径与可移植性约束
+
+为了保证仓库可搬迁、可 fork、可恢复，主状态中只存：
+
+- canonical relative path
+- content hash
+- stable item key
+
+主状态中不应写入：
+
+- 依赖机器的绝对路径
+- 宿主特定临时目录
+- 不可重建的 QMD 内部路径
+
+QMD 索引应始终视为可丢弃重建缓存。
+
 ## 20. 第一版实现范围
 
 ### 20.1 V1 必做
@@ -742,6 +1315,10 @@ MemFold 核心负责：
 - QMD sidecar 集成
 - normal/fresh/sterile 模式
 - rejected/disputed/quarantine 机制
+- observation 安全清洗
+- rebuild/repair 基础能力
+- retention/prune 基础能力
+- 实验环境与生产环境隔离
 
 ### 20.2 V1.1 建议补充
 
@@ -767,9 +1344,9 @@ MemFold 核心负责：
 - `config`
   - 负责全局配置、路径解析、项目作用域解析、模式默认值
 - `state`
-  - 负责 SQLite 连接、迁移、事务、锁管理
+  - 负责 SQLite 连接、迁移、事务、租约锁管理
 - `memory_fs`
-  - 负责 `memory/` 目录下的 Markdown/JSONL 读写
+  - 负责 `memory/` 目录下的 Markdown/JSONL 原子读写
 - `boot`
   - 负责 boot bundle 编译、预算控制、加载筛选
 - `observation`
@@ -778,6 +1355,8 @@ MemFold 核心负责：
   - 负责检索路由、分级下钻、结果裁剪
 - `qmd_adapter`
   - 负责与 QMD 的索引同步、collection 映射、查询适配
+- `mutations`
+  - 负责跨存储变更协议、恢复与补偿
 - `dreaming`
   - 负责 `light/rem/deep` 阶段流程和决策输出
 - `feedback`
@@ -819,25 +1398,36 @@ MemFold 核心负责：
 - 执行查询并返回结构化摘要
 - 在需要时触发重建或增量同步
 
+QMD 文档模型至少需要：
+
+- `doc_id`
+- `source_type`
+- `relative_path`
+- `pointer`
+- `content_hash`
+- `last_indexed_at`
+
 以下能力不进入 `qmd_adapter`：
 
 - 记忆状态迁移
 - dreaming phase 决策
 - boot bundle 编译规则
 - rejected/disputed/quarantine 管理
+- 跨存储提交事务
 
 ### 21.4 第一版交付顺序
 
 建议实现顺序：
 
 1. `config + state + memory_fs`
-2. `boot`
-3. `observation`
-4. `retrieval`
-5. `qmd_adapter`
-6. `feedback`
-7. `dreaming`
-8. `experiments`
+2. `mutations`
+3. `boot`
+4. `observation`
+5. `retrieval`
+6. `qmd_adapter`
+7. `feedback`
+8. `dreaming`
+9. `experiments`
 
 这个顺序保证系统最先可用的是“安全加载 + 基础写入 + 基础检索”，而不是先追求复杂 dreaming。
 
@@ -858,6 +1448,7 @@ MemFold 核心负责：
 - 内容真相源：Markdown + JSONL
 - 状态真相源：SQLite
 - 检索加速器：QMD
+- 派生层：boot bundle + QMD index
 
 ### 22.3 过度记忆风险
 
