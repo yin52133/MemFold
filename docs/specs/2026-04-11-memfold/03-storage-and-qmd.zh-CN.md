@@ -41,10 +41,7 @@ MemFold/
 └── runtime/{locks,jobs,cache}/
 ```
 
-说明：
-
-- `boot/bundle.md` 是派生物，不是人工真相源
-- `runtime/locks/` 只用于诊断，不是锁真相源
+说明：`boot/bundle.md` 是派生物，不是人工真相源；`runtime/locks/` 只用于诊断，不是锁真相源。
 
 ## 3. Observation 与 Memory Item
 
@@ -155,10 +152,7 @@ flowchart TD
 
 QMD 是检索 sidecar，不是状态真相源。
 
-QMD 负责：
-
-- `effective` / `wiki` / `archive` 索引
-- path/topic/collection 查询
+QMD 负责：`effective/wiki/archive` 索引，以及 path/topic/collection 查询。
 
 QMD 不负责：
 
@@ -186,7 +180,16 @@ QMD 文档至少包含：
 - `relative_path` 必须是 canonical relative path
 - QMD 索引始终视为可丢弃重建缓存
 
-## 9. 可移植性
+## 9. 索引检索验收
+
+第一版需要具备最低性能门槛：
+
+- 热路径精确查找：`p50 < 50ms`，`p95 < 150ms`
+- 常规混合检索：`p50 < 150ms`，`p95 < 400ms`
+- 全量重建必须可执行
+- 增量同步必须不破坏稳定回指
+
+## 10. 可移植性
 
 为了可搬迁、可 fork、可恢复：
 
@@ -195,7 +198,7 @@ QMD 文档至少包含：
 - 不把绝对路径写进主状态
 - 不依赖宿主临时目录
 
-## 10. 保留期与删除传播
+## 11. 保留期与删除传播
 
 最小 retention 规则：
 

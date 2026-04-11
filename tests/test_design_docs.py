@@ -79,6 +79,14 @@ class TestDesignDocs(unittest.TestCase):
         self.assertIn("显式知识检索路径", text)
         self.assertIn("语义墓碑", text)
 
+    def test_loading_doc_has_runtime_acceptance_for_stable_load(self):
+        text = read(DETAIL_DIR / "02-loading-and-retrieval.zh-CN.md")
+        self.assertIn("稳定载入验收", text)
+        self.assertIn("同一快照", text)
+        self.assertIn("相同 item 集合", text)
+        self.assertIn("相同顺序", text)
+        self.assertIn("禁止部分可见", text)
+
     def test_loading_doc_has_boot_budget_and_slots(self):
         text = read(DETAIL_DIR / "02-loading-and-retrieval.zh-CN.md")
         self.assertIn("Boot Bundle", text)
@@ -118,6 +126,14 @@ class TestDesignDocs(unittest.TestCase):
     def test_storage_doc_says_qmd_is_not_source_of_truth(self):
         text = read(DETAIL_DIR / "03-storage-and-qmd.zh-CN.md")
         self.assertIn("QMD 是检索 sidecar，不是状态真相源", text)
+
+    def test_storage_doc_has_index_lookup_acceptance(self):
+        text = read(DETAIL_DIR / "03-storage-and-qmd.zh-CN.md")
+        self.assertIn("索引检索验收", text)
+        self.assertIn("p50", text)
+        self.assertIn("p95", text)
+        self.assertIn("全量重建", text)
+        self.assertIn("增量同步", text)
 
     def test_storage_doc_defines_lock_source(self):
         text = read(DETAIL_DIR / "03-storage-and-qmd.zh-CN.md")
