@@ -1,0 +1,32 @@
+{
+  "name": "memfold",
+  "version": "0.1.0",
+  "description": "Codex memory plugin backed by the MemFold local memory framework.",
+  "author": {
+    "name": "yin52133"
+  },
+  "homepage": "https://github.com/yin52133/MemFold",
+  "repository": "https://github.com/yin52133/MemFold",
+  "license": "MIT",
+  "keywords": ["codex", "memory", "hook", "agent-memory", "qmd"],
+  "skills": "./skills/",
+  "hooks": "./hooks.json",
+  "interface": {
+    "displayName": "MemFold",
+    "shortDescription": "Layered memory for Codex",
+    "longDescription": "MemFold adds layered memory, controlled promotion, QMD retrieval, hook capture, and dreaming flows to Codex.",
+    "developerName": "yin52133",
+    "category": "Coding",
+    "capabilities": ["Interactive", "Read", "Write"],
+    "websiteURL": "https://github.com/yin52133/MemFold",
+    "defaultPrompt": [
+      "Use /dream to consolidate promotable memory",
+      "Use /qmd to sync or inspect retrieval index",
+      "Use /memfold-search to retrieve prior context"
+    ],
+    "brandColor": "#0F766E",
+    "composerIcon": "./assets/icon.txt",
+    "logo": "./assets/icon.txt",
+    "screenshots": []
+  }
+}

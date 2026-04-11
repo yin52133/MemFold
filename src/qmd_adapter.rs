@@ -1,8 +1,10 @@
 use std::fs;
 use std::path::{Path, PathBuf};
 
+use fastembed::{EmbeddingModel as FastEmbeddingModel, InitOptions, TextEmbedding};
 use rusqlite::{params, Connection, OptionalExtension};
 use serde::{Deserialize, Serialize};
+use sha2::{Digest, Sha256};
 use time::OffsetDateTime;
 
 use crate::config::MemfoldConfig;
@@ -10,7 +12,7 @@ use crate::domain::ScopeRef;
 use crate::error::Result;
 use crate::state::schema;
 
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 pub struct QmdRecord {
     pub doc_id: String,
     pub source_type: String,
@@ -21,6 +23,22 @@ pub struct QmdRecord {
     pub scope_type: String,
     pub scope_id: String,
     pub updated_at: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub embedding: Option<Vec<f32>>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+pub struct QmdModelInitResult {
+    pub enabled: bool,
+    pub model: String,
+    pub cache_dir: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+struct QmdConfig {
+    enabled: bool,
+    model: String,
+    cache_dir: String,
 }
 
 pub fn sync_scope(config: &MemfoldConfig, scope: &ScopeRef) -> Result<usize> {
@@ -28,11 +46,60 @@ pub fn sync_scope(config: &MemfoldConfig, scope: &ScopeRef) -> Result<usize> {
     let evidence_records = build_evidence_records(config, scope)?;
     let archive_records = build_archive_records(config, scope)?;
 
+    let mut embedder = load_embedder(config)?;
+    let stable_records = embed_records(stable_records, embedder.as_mut());
+    let evidence_records = embed_records(evidence_records, embedder.as_mut());
+    let archive_records = embed_records(archive_records, embedder.as_mut());
+
     write_collection(config, scope, "stable", &stable_records)?;
     write_collection(config, scope, "evidence", &evidence_records)?;
     write_collection(config, scope, "archive", &archive_records)?;
 
     Ok(stable_records.len() + evidence_records.len() + archive_records.len())
+}
+
+pub fn init_model(config: &MemfoldConfig, model: &str) -> Result<QmdModelInitResult> {
+    let cache_dir = config.root.join("qmd").join("models");
+    fs::create_dir_all(&cache_dir)?;
+    if let Some(parent) = qmd_config_path(config).parent() {
+        fs::create_dir_all(parent)?;
+    }
+    let qmd_config = QmdConfig {
+        enabled: true,
+        model: model.to_string(),
+        cache_dir: cache_dir.display().to_string(),
+    };
+
+    if model != "mock-test" {
+        let _ = create_fastembed(model, &cache_dir)?;
+    }
+
+    fs::write(
+        qmd_config_path(config),
+        serde_json::to_string_pretty(&qmd_config)?,
+    )?;
+
+    Ok(QmdModelInitResult {
+        enabled: true,
+        model: qmd_config.model,
+        cache_dir: qmd_config.cache_dir,
+    })
+}
+
+pub fn embed_query(config: &MemfoldConfig, text: &str) -> Result<Option<Vec<f32>>> {
+    let Some(mut embedder) = load_embedder(config)? else {
+        return Ok(None);
+    };
+    let vector = match &mut embedder {
+        Embedder::Mock => mock_embed(text),
+        Embedder::Fast(model) => {
+            let embeddings = model
+                .embed(vec![text.to_string()], None)
+                .map_err(|err| std::io::Error::other(err.to_string()))?;
+            embeddings.into_iter().next().unwrap_or_default()
+        }
+    };
+    Ok(Some(vector))
 }
 
 pub fn load_scope_records(config: &MemfoldConfig, scope: &ScopeRef) -> Result<Vec<QmdRecord>> {
@@ -109,6 +176,7 @@ fn build_stable_records(config: &MemfoldConfig, scope: &ScopeRef) -> Result<Vec<
                 scope_type: scope.scope_type.as_str().to_string(),
                 scope_id: scope.scope_id.clone(),
                 updated_at,
+                embedding: None,
             });
         }
     }
@@ -160,6 +228,7 @@ fn build_evidence_records(config: &MemfoldConfig, scope: &ScopeRef) -> Result<Ve
                 scope_type: scope.scope_type.as_str().to_string(),
                 scope_id: scope.scope_id.clone(),
                 updated_at: value["created_at"].as_str().unwrap_or("").to_string(),
+                embedding: None,
             });
         }
     }
@@ -199,6 +268,7 @@ fn build_archive_records(config: &MemfoldConfig, scope: &ScopeRef) -> Result<Vec
                 scope_type: scope.scope_type.as_str().to_string(),
                 scope_id: scope.scope_id.clone(),
                 updated_at: entry.updated_at,
+                embedding: None,
             });
         }
     }
@@ -233,6 +303,10 @@ fn collection_file_path(config: &MemfoldConfig, scope: &ScopeRef, source_type: &
         .join("collections")
         .join(scope.scope_dir_fragment())
         .join(format!("{source_type}.jsonl"))
+}
+
+fn qmd_config_path(config: &MemfoldConfig) -> PathBuf {
+    config.root.join("qmd").join("config").join("model.json")
 }
 
 fn open_connection(config: &MemfoldConfig) -> Result<Connection> {
@@ -350,4 +424,76 @@ fn parse_archive_entries(path: &Path) -> Result<Vec<ParsedArchiveEntry>> {
 
 fn now_string() -> String {
     OffsetDateTime::now_utc().to_string()
+}
+
+enum Embedder {
+    Mock,
+    Fast(TextEmbedding),
+}
+
+fn load_embedder(config: &MemfoldConfig) -> Result<Option<Embedder>> {
+    let path = qmd_config_path(config);
+    if !path.exists() {
+        return Ok(None);
+    }
+    let cfg: QmdConfig = serde_json::from_str(&fs::read_to_string(path)?)?;
+    if !cfg.enabled {
+        return Ok(None);
+    }
+    if cfg.model == "mock-test" {
+        return Ok(Some(Embedder::Mock));
+    }
+
+    Ok(Some(Embedder::Fast(create_fastembed(
+        &cfg.model,
+        Path::new(&cfg.cache_dir),
+    )?)))
+}
+
+fn create_fastembed(model: &str, cache_dir: &Path) -> Result<TextEmbedding> {
+    let model_name = match model {
+        "multilingual-e5-small" => FastEmbeddingModel::MultilingualE5Small,
+        "bge-small-zh-v1.5" => FastEmbeddingModel::BGESmallZHV15,
+        "bge-m3" => FastEmbeddingModel::BGEM3,
+        _ => FastEmbeddingModel::MultilingualE5Small,
+    };
+    let options = InitOptions::new(model_name)
+        .with_cache_dir(cache_dir.to_path_buf())
+        .with_show_download_progress(true);
+    Ok(TextEmbedding::try_new(options).map_err(|err| std::io::Error::other(err.to_string()))?)
+}
+
+fn embed_records(records: Vec<QmdRecord>, embedder: Option<&mut Embedder>) -> Vec<QmdRecord> {
+    match embedder {
+        None => records,
+        Some(Embedder::Mock) => records
+            .into_iter()
+            .map(|mut record| {
+                record.embedding = Some(mock_embed(&record.summary));
+                record
+            })
+            .collect(),
+        Some(Embedder::Fast(model)) => {
+            let summaries = records.iter().map(|record| record.summary.clone()).collect::<Vec<_>>();
+            let embeddings = model.embed(summaries, None).unwrap_or_default();
+            records
+                .into_iter()
+                .zip(embeddings.into_iter())
+                .map(|(mut record, embedding)| {
+                    record.embedding = Some(embedding);
+                    record
+                })
+            .collect()
+        }
+    }
+}
+
+pub(crate) fn mock_embed(text: &str) -> Vec<f32> {
+    let mut out = Vec::with_capacity(8);
+    let digest = Sha256::digest(text.as_bytes());
+    for chunk in digest[..32].chunks(4).take(8) {
+        let value = u32::from_le_bytes([chunk[0], chunk[1], chunk[2], chunk[3]]);
+        out.push((value as f32) / (u32::MAX as f32));
+    }
+    out
 }

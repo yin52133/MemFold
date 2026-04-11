@@ -15,7 +15,7 @@ use memfold::experiments::{default_fixture_path, run_fixture};
 use memfold::feedback::apply_feedback;
 use memfold::hooks::{capture_event, HookCaptureInput, HookEvent};
 use memfold::init::initialize_root;
-use memfold::qmd_adapter::sync_scope;
+use memfold::qmd_adapter::{init_model as init_qmd_model, sync_scope};
 use memfold::repair::run_repair;
 use memfold::retrieval::search_memories;
 
@@ -117,6 +117,10 @@ enum Commands {
 
 #[derive(Subcommand, Debug)]
 enum QmdCommands {
+    InitModel {
+        #[arg(long)]
+        model: String,
+    },
     Sync {
         #[arg(long = "scope-type")]
         scope_type: String,
@@ -326,6 +330,10 @@ fn run(cli: Cli) -> Result<(), Error> {
             println!("{}", serde_json::to_string(&response)?);
         }
         Commands::Qmd { command } => match command {
+            QmdCommands::InitModel { model } => {
+                let result = init_qmd_model(&config, &model)?;
+                println!("{}", serde_json::to_string(&result)?);
+            }
             QmdCommands::Sync {
                 scope_type,
                 scope_id,

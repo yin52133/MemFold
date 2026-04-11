@@ -19,6 +19,12 @@
 ./scripts/verify_codex_global.sh
 ```
 
+部署后可用：
+
+```bash
+cdx-memfold
+```
+
 ## 部署结果
 
 - `~/.codex/memfold/bin/memfold`
@@ -30,6 +36,7 @@
 - CLI `load`
 - 全局 `turn_end` hook dry-run
 - `cdx exec` 真实调用 `memfold`
+- `cdx-memfold` 启动器存在且可执行
 
 ## 回滚
 

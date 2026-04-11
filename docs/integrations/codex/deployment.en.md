@@ -19,6 +19,12 @@ while keeping deployed hooks and skills synchronized with the Git-managed repo s
 ./scripts/verify_codex_global.sh
 ```
 
+After deployment:
+
+```bash
+cdx-memfold
+```
+
 ## Deployment result
 
 - `~/.codex/memfold/bin/memfold`
@@ -30,6 +36,7 @@ while keeping deployed hooks and skills synchronized with the Git-managed repo s
 - CLI `load`
 - global `turn_end` hook dry-run
 - real `cdx exec` invocation of `memfold`
+- `cdx-memfold` launcher exists and is executable
 
 ## Rollback
 

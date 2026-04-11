@@ -1,52 +1,151 @@
 # MemFold
 
-[中文](./README.md) | [English](./README.en.md)
+[English](./README.md) | [中文](./README.zh-CN.md)
 
-A layered **Codex memory** framework that turns the `hook + skill/tool` pattern into a local, auditable, replayable, and offline-testable memory system.
+MemFold is a **Codex memory framework** that combines `hooks + skills/tools + qmd + dreaming` into a local, auditable, replayable, and offline-testable memory system, instead of dumping raw history back into prompt context.
 
-## What It Is
+## Repository Focus
 
-MemFold addresses two opposite failure modes in long-running Codex work:
+This is not a generic chat-memory demo. It is specifically built for **Codex memory orchestration**:
 
-- carrying everything forward: token bloat and stale-path pollution
-- remembering nothing: stable preferences and project constraints keep getting lost
+- Codex session startup, work-in-progress capture, and exit handling
+- Codex hooks, skills, plugin commands, and global deployment
+- startup bundle injection, evidence capture, dreaming consolidation, and QMD retrieval
 
-Its core strategy is **layered filtering**, not “store more”.
+## Why It Exists
 
-## Key Layers
+Codex memory usually fails in two opposite ways:
 
-- `boot bundle`: minimal startup context
-- `stable`: long-term memory truth source
-- `evidence`: working-memory truth source
-- `archive`: human-readable dated trace layer
-- `qmd sidecar`: rebuildable retrieval index
+- carry everything forward: token bloat and stale-path contamination
+- remember nothing: stable preferences and project constraints keep getting lost
+
+MemFold solves that with **layered filtering**, not by “storing more”.
 
 ## Highlights
 
 - `hook + skill/tool`: hooks prevent misses, tools prevent noisy promotion
-- `Rust + SQLite + local sidecar`
-- Markdown/JSONL as truth source, SQLite as state/projection store
-- `dreaming + tombstone` for promotion, rejection, and anti-resurrection
-- `experiments` for offline rule validation
-- repo-local hook rollout before global Codex deployment
+- `five-layer memory design`: boot / stable / evidence / wiki / archive
+- `truth-source first`: Markdown/JSONL are the content truth source; SQLite stores state and projections
+- `dreaming + tombstone`: promotion, rejection, quarantine, and anti-resurrection
+- `QMD sidecar`: rebuildable retrieval index that can evolve independently
+- `embedding-ready qmd`: local embedding model initialization and first-run model download
+- `experiments / autoresearch`: fixture-driven offline validation instead of production trial-and-error
+- `repo-canonical integration`: `hooks/`, `skills/`, and `plugins/` are all Git-managed sources
 
-## Architecture
+## Five Layers
 
 ```text
-Codex Hooks / Tools
-        |
-        v
-     memfold CLI
-        |
-        +-- boot / load
-        +-- evidence / mutations
-        +-- retrieval / qmd
-        +-- feedback / dreaming / repair
-        +-- experiments
-        |
-        +-- SQLite (state/projections/locks)
-        +-- Markdown / JSONL (truth source)
-        +-- QMD sidecar (discardable index)
+Layer 1  boot bundle
+  minimal stable startup context
+
+Layer 2  stable
+  long-term memory truth source
+
+Layer 3  evidence
+  working-memory truth source
+
+Layer 4  wiki
+  background knowledge layer
+
+Layer 5  archive
+  dated human-readable trace layer
+```
+
+Default load order:
+
+```text
+boot -> stable -> evidence -> wiki -> archive
+```
+
+Knowledge lookup order:
+
+```text
+boot -> stable -> wiki -> archive -> evidence
+```
+
+## Core Workflow
+
+```text
+Codex session start
+  -> hook/session_start
+  -> memfold init
+  -> memfold load
+  -> inject minimal bundle
+
+During work
+  -> hook/turn_end captures filtered promotable=0 summaries
+  -> skills/tools explicitly call write-evidence/search/feedback
+
+Session end
+  -> hook/session_end writes final session summary
+  -> background dream maybe-run
+  -> double gate: >=24h since last dream && >=5 ended sessions
+
+Dreaming
+  -> read promotable evidence
+  -> filter tombstoned / sterile / analysis-draft candidates
+  -> promote / hold / discard
+  -> rebuild bundle
+  -> qmd sync
+```
+
+## QMD and Embedding Models
+
+QMD is an indexing sidecar, not a content truth source.
+
+Two levels are supported:
+
+1. base sidecar
+- indexes `stable / evidence / archive`
+- falls back to lexical retrieval
+
+2. embedding sidecar
+- initialized with `memfold qmd init-model`
+- first run downloads a local embedding model into:
+
+```bash
+~/.codex/memfold/qmd/models
+```
+
+- does **not** require a separate Ollama or LM Studio service
+- writes config to:
+
+```bash
+~/.codex/memfold/qmd/config/model.json
+```
+
+Recommended default model:
+
+- `multilingual-e5-small`
+
+Other supported models:
+
+- `bge-small-zh-v1.5`
+- `bge-m3`
+
+Example:
+
+```bash
+memfold --root ~/.codex/memfold qmd init-model --model multilingual-e5-small
+memfold --root ~/.codex/memfold qmd sync --scope-type project --scope-id my-project
+```
+
+More:
+
+- [Codex QMD Guide](./docs/integrations/codex/qmd.en.md)
+
+## Repository Layout
+
+```text
+src/                         core engine
+hooks/                       canonical hook source
+  local/                     repo-local self-test hooks
+  codex-global/              global Codex deployment hooks
+skills/                      canonical skill source
+plugins/                     Codex plugin / slash command source
+docs/integrations/codex/     Codex deployment and integration docs
+scripts/                     deployment / verification scripts
+tests/                       regression and E2E coverage
 ```
 
 ## Available Commands
@@ -55,41 +154,75 @@ Codex Hooks / Tools
 - `memfold load`
 - `memfold write-evidence`
 - `memfold search`
+- `memfold qmd init-model`
 - `memfold qmd sync`
 - `memfold bundle compile`
 - `memfold feedback`
 - `memfold dream run`
+- `memfold dream maybe-run`
 - `memfold repair`
 - `memfold hook capture`
 - `memfold experiment run`
 
-## Basic Usage
+## /dream and Plugin Commands
 
-```bash
-cargo run -- init --root ./.memfold-local
-```
+Plugin command sources already exist in the repo:
 
-```bash
-cargo run -- load \
-  --root ./.memfold-local \
-  --mode normal \
-  --scope-type project \
-  --scope-id MemFold \
-  --intent startup \
-  --budget 400
-```
+- `plugins/memfold/commands/dream.md`
+- `plugins/memfold/commands/qmd.md`
+- `plugins/memfold/commands/memfold-search.md`
+- `plugins/memfold/commands/memfold-remember.md`
+- `plugins/memfold/commands/memfold-forget.md`
 
-```bash
-cargo run -- experiment run --fixture tests/fixtures/experiments/passing.json
-```
+`/dream` supports:
 
-## Local Hook Policy
+- `scope_type`
+- `scope_id`
+- `trigger=manual|scheduled`
+- `mode=run|maybe-run`
 
-The local hook path stores only **meaningful state-change summaries**, not full raw logs:
+Where:
 
-- never store raw prompts, raw tool output, reasoning drafts, or secrets
+- `run` means explicit immediate consolidation
+- `maybe-run` means silent gated consolidation
+
+## Hook Policy
+
+Only **state-changing summaries** should go into memory by default:
+
+- never store raw prompts
+- never store raw tool output
+- never store reasoning drafts
+- never store secrets
 - hooks write filtered summaries with `promotable=0`
-- explicit skills/tools may write stable candidates with `promotable=1`
+- skills/tools explicitly write stable candidates with `promotable=1`
+
+## Global Deployment
+
+Global target:
+
+```bash
+~/.codex/memfold
+```
+
+One-shot scripts:
+
+```bash
+./scripts/deploy_codex_global.sh
+./scripts/verify_codex_global.sh
+```
+
+Optional launcher:
+
+```bash
+cdx-memfold
+```
+
+Behavior:
+
+- runs `session_start` before Codex starts
+- best-effort runs `session_end` on `EXIT / ctrl+c / TERM`
+- in-process `/new` resets still need deeper plugin-level host integration
 
 ## Validation
 
@@ -97,12 +230,23 @@ The local hook path stores only **meaningful state-change summaries**, not full 
 cargo test
 ```
 
+Current coverage includes:
+
+- foundation
+- write/load
+- retrieval/index
+- qmd embedding config
+- feedback/dream/repair
+- hook capture
+- Codex CLI E2E
+- experiments
+
 ## Related Docs
 
 - [AGENTS.md](./AGENTS.md)
 - [Codex Integration Docs](./docs/integrations/codex/README.en.md)
-- [Architecture Spec (zh-CN)](./docs/specs/2026-04-11-memfold-architecture-design.zh-CN.md)
-- [Local Hook Readme (zh-CN)](./hooks/local/README.zh-CN.md)
+- [Codex QMD Guide](./docs/integrations/codex/qmd.en.md)
 - [Hooks Overview](./hooks/README.en.md)
 - [Skills Overview](./skills/README.en.md)
+- [Architecture Spec (zh-CN)](./docs/specs/2026-04-11-memfold-architecture-design.zh-CN.md)
 - [Progress Board (zh-CN)](./docs/progress/memfold-v1/00-master-checklist.zh-CN.md)
