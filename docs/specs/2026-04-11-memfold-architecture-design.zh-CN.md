@@ -67,5 +67,13 @@ MemFold 只保留 5 个需要理解的层：
   dreaming 保留逻辑、错误记忆隔离、规则与验收
 - [05-runtime-and-implementation.zh-CN.md](/home/ps/project/MemFold/docs/specs/2026-04-11-memfold/05-runtime-and-implementation.zh-CN.md)
   CLI、模块、实施顺序、提交策略
+- [06-filesystem-layout.zh-CN.md](/home/ps/project/MemFold/docs/specs/2026-04-11-memfold/06-filesystem-layout.zh-CN.md)
+  `~/.memfold/` 目录布局与每个目录的职责
+- [07-sqlite-schema.zh-CN.md](/home/ps/project/MemFold/docs/specs/2026-04-11-memfold/07-sqlite-schema.zh-CN.md)
+  SQLite 表、核心字段、索引与关系
+- [08-cli-contract.zh-CN.md](/home/ps/project/MemFold/docs/specs/2026-04-11-memfold/08-cli-contract.zh-CN.md)
+  CLI 命令的入参、出参、错误码、成功条件
+- [09-memory-item-schema.zh-CN.md](/home/ps/project/MemFold/docs/specs/2026-04-11-memfold/09-memory-item-schema.zh-CN.md)
+  memory item、工作记录、墓碑与启动包条目的最小 schema
 - [memfold-open-source-review.zh-CN.md](/home/ps/project/MemFold/docs/references/memfold-open-source-review.zh-CN.md)
   参考库与致敬

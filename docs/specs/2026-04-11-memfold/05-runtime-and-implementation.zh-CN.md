@@ -92,15 +92,36 @@
 4. `evidence`
 5. `retrieval`
 
+第一阶段完成标准：
+
+- `memfold init` 能生成最小目录
+- SQLite 能初始化并建表
+- `memfold load` 能返回启动包
+- `memfold write-evidence` 能成功写一条工作记录
+- `memfold search` 能返回结构化结果
+
 第二阶段再做：
 
 6. `qmd_adapter`
 7. `feedback`
 8. `dreaming`
 
+第二阶段完成标准：
+
+- QMD 能完成一次全量索引
+- `feedback` 能把长期记忆打到 `disputed/rejected`
+- dreaming 能完成一次“保留 / 暂存 / 隔离 / 丢弃”决策
+- dreaming 不会把分析草稿直接晋升
+
 第三阶段再做：
 
 9. `experiments`
+
+第三阶段完成标准：
+
+- 能跑离线失败样例
+- 能对规则改动给出通过 / 失败结论
+- 不会误写生产目录
 
 这样可以保证系统先具备：
 
