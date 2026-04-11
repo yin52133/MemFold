@@ -2,171 +2,212 @@
 
 ## 1. 宿主和核心怎么分工
 
-宿主只负责“触发”。
+```
+宿主（Claude Code / Codex / OpenClaw）
+  │  只负责触发
+  │
+  ├── 启动 session
+  ├── 调用 memfold load
+  ├── 调用 memfold write-evidence
+  ├── 提交 memfold feedback
+  └── 触发显式搜索或 memfold dream run
 
-核心负责“做决定”。
+核心（MemFold）
+  │  负责所有决策
+  │
+  ├── 读取哪些层
+  ├── 什么时候继续往下读
+  ├── 什么时候写长期记忆
+  ├── 什么时候隔离或丢弃
+  └── 什么时候需要 repair / rebuild
+```
 
-### 宿主负责
-
-- 启动 session
-- 调用 `load`
-- 调用 `write_evidence`
-- 提交 `feedback`
-- 触发显式搜索或 `dream_run`
-
-### 核心负责
-
-- 读取哪些层
-- 什么时候继续往下读
-- 什么时候写长期记忆
-- 什么时候隔离或丢弃
-- 什么时候需要 repair / rebuild
+宿主层只做薄转换，不在宿主里复制任何记忆逻辑。
 
 ## 2. 为什么核心接口是 CLI
 
-第一版选择 CLI 不是为了让用户手动操作，而是为了让不同宿主都能稳定调用同一个本地核心。
+第一版选择 CLI 是为了让不同宿主都能稳定调用同一个本地核心。
 
-这样做的好处：
-
+好处：
 - 不绑某个宿主实现
 - 本地分发简单
 - 出问题时容易复现
 - 不需要先引入常驻服务复杂度
 
-所以正确理解是：
-
+正确理解：
 - `plugin / hook / skill` 是宿主入口
-- `CLI` 是 MemFold 核心入口
+- `CLI` 是 MemFold 核心入口，不是用户手敲的工具
 
-## 3. 最小接口
+## 3. CLI 命令清单
 
-- `load(mode, scope, intent)`
-- `write_evidence(scope, source_kind, summary, refs...)`
-- `feedback(target, verdict, reason)`
-- `search(scope, query, intent, budget)`
-- `dream_run(scope, trigger)`
+| 命令 | 用途 |
+|------|------|
+| `memfold init` | 初始化目录和 SQLite |
+| `memfold load` | 读取启动包，按模式决定展开层数 |
+| `memfold write-evidence` | 写工作记录 |
+| `memfold feedback` | 接收用户反馈，标记 rejected/disputed |
+| `memfold dream run` | 执行 dreaming 整理 |
+| `memfold qmd sync` | 重建/同步 QMD 索引 |
+| `memfold search` | 按 intent 和预算执行检索 |
+| `memfold bundle compile` | 重编启动包 |
+| `memfold repair` | 修复存储层不一致 |
+| `memfold experiment run` | 运行离线验证实验 |
 
-宿主层只做薄转换，不在宿主里复制记忆逻辑。
+## 4. 模块清单与职责
 
-## 4. 模块拆分
+```
+config
+  读取 config.toml 和宿主配置
+  被所有模块依赖
 
-- `config`
-- `state`
-- `memory_fs`
-- `mutations`
-- `boot`
-- `evidence`
-- `retrieval`
-- `qmd_adapter`
-- `feedback`
-- `dreaming`
-- `wiki`
-- `experiments`
+state
+  SQLite 初始化和读写
+  被大多数模块依赖
 
-拆分原则：
+memory_fs
+  文件系统读写（Markdown block 解析 / JSONL append / 原子替换）
+  不做任何决策，只做 IO
 
-- 每个模块只做一类事
-- 不跨层偷改状态
-- 所有跨存储修改都经过 `mutations`
+mutations
+  跨存储提交协调
+  按固定顺序写 SQLite → 内容层 → 派生层
+  所有跨存储修改必须经过这里
 
-## 5. CLI 命令
+boot
+  读取和编译启动包
+  从 stable/*.md 的 autoload 条目编译 bundle.md
+  验证 token 预算
 
-- `memfold init`
-- `memfold load`
-- `memfold write-evidence`
-- `memfold feedback`
-- `memfold dream run`
-- `memfold qmd sync`
-- `memfold search`
-- `memfold bundle compile`
-- `memfold repair`
-- `memfold experiment run`
+evidence
+  写入工作记录
+  调 mutations 保证顺序
+  追加到 sessions/*/evidence.jsonl
+  追加到 archive/memory-YYYY-MM-DD.md
+
+retrieval
+  分层检索
+  按 mode / intent / budget 决定读哪些层
+  调 qmd_adapter 做精确查找
+
+qmd_adapter
+  QMD 索引侧边车的接口封装
+  同步 / 增量更新 / 重建
+  不做决策，只做索引 IO
+
+feedback
+  接收用户反馈
+  调 mutations 更新 status
+  写入 tombstone
+
+dreaming
+  记忆整理核心
+  四阶段：Orient / Gather / Consolidate / Prune
+  调 retrieval 采集信号
+  调 mutations 落地决策结果
+  调 boot 重编启动包
+
+wiki
+  知识库读写接口（wiki/*.md CRUD）
+
+experiments
+  离线验证框架
+  跑晋升率 / 污染率 / 复活率等指标
+```
+
+## 5. 模块依赖图
+
+```
+config ◄──────────────────────── 所有模块都依赖
+
+state ◄──────────── boot, evidence, mutations,
+                    dreaming, retrieval, feedback, qmd_adapter
+
+memory_fs ◄──────── boot, evidence, dreaming,
+                    retrieval, qmd_adapter, wiki
+
+mutations ◄──────── evidence, dreaming, feedback
+  └── 依赖 state, memory_fs
+
+boot
+  └── 依赖 state, memory_fs, mutations
+
+evidence
+  └── 依赖 mutations, memory_fs
+
+retrieval
+  └── 依赖 state, memory_fs, qmd_adapter
+
+qmd_adapter
+  └── 依赖 memory_fs, state
+
+feedback
+  └── 依赖 mutations, state
+
+dreaming
+  └── 依赖 mutations, memory_fs, state, retrieval
+```
 
 ## 6. 实施顺序
 
-第一阶段先做：
+```
+第一阶段（核心闭环，先做）
+┌───────────────────────────────────────────────┐
+│  1. config + state + memory_fs                │
+│     完成标准：memfold init 可执行             │
+│                                               │
+│  2. mutations                                 │
+│     完成标准：mutation 状态可从 pending       │
+│       推进到 fully_applied                    │
+│                                               │
+│  3. boot                                      │
+│     完成标准：memfold load 返回稳定结果       │
+│                                               │
+│  4. evidence                                  │
+│     完成标准：write-evidence 可执行，         │
+│       JSONL 落地，SQLite 投影正确             │
+└───────────────────────────────────────────────┘
+目标：能稳定启动、稳定写入、稳定回读
 
-1. `config + state + memory_fs`
-2. `mutations`
-3. `boot`
-4. `evidence`
-5. `retrieval`
+第二阶段（检索和整理）
+┌───────────────────────────────────────────────┐
+│  5. retrieval                                 │
+│  6. qmd_adapter                               │
+│  7. feedback                                  │
+│  8. dreaming                                  │
+└───────────────────────────────────────────────┘
+目标：dreaming 可运行，tombstone 机制有效
 
-第一阶段完成标准：
+第三阶段（实验）
+┌───────────────────────────────────────────────┐
+│  9. experiments                               │
+└───────────────────────────────────────────────┘
+目标：可离线验证晋升率、污染率、复活率
+```
 
-- `memfold init` 能生成最小目录
-- SQLite 能初始化并建表
-- `memfold load` 能返回启动包
-- `memfold write-evidence` 能成功写一条工作记录
-- `memfold search` 能返回结构化结果
+## 7. V1 范围
 
-第二阶段再做：
-
-6. `qmd_adapter`
-7. `feedback`
-8. `dreaming`
-
-第二阶段完成标准：
-
-- QMD 能完成一次全量索引
-- `feedback` 能把长期记忆打到 `disputed/rejected`
-- dreaming 能完成一次“保留 / 暂存 / 隔离 / 丢弃”决策
-- dreaming 不会把分析草稿直接晋升
-
-第三阶段再做：
-
-9. `experiments`
-
-第三阶段完成标准：
-
-- 能跑离线失败样例
-- 能对规则改动给出通过 / 失败结论
-- 不会误写生产目录
-
-这样可以保证系统先具备：
-
-- 稳定启动
-- 稳定写入
-- 稳定回读
-
-然后才去做复杂整理。
-
-## 7. 发布与提交策略
-
-你前面提的要求是对的：  
-错误的中间修改不能进最终公开仓库。
-
-所以规则应该写死：
-
-- 本地可以有探索性提交
-- 公开仓库只接受 feature 级、范围明确、结论稳定的提交
-- 被否定的设计迭代不能进入最终云上历史
-
-这意味着在真正 push 前，要做：
-
-- 设计收敛
-- feature 切分
-- 历史整理
-
-而不是把所有试错痕迹一起推上去。
-
-## 8. V1 范围
-
-V1 只做最核心闭环：
-
+V1 包含：
 - 启动包
 - 长期记忆
 - 工作记录
-- 历史档案
+- 历史档案（按日期 .md 归档）
 - QMD sidecar
-- `normal/fresh/sterile`
-- 基础 dreaming
-- error quarantine
+- `normal / fresh / sterile` 三种模式
+- 基础 dreaming（manual 触发）
+- error quarantine（tombstone 机制）
 - rebuild / repair
 
-V1 不追求：
-
+V1 不包含：
 - 常驻服务
 - 复杂图谱
 - 自动调参
 - 多宿主深度包装
+- scheduled dreaming 门控（可选后做）
+
+## 8. 提交策略
+
+- 本地可以有探索性提交
+- 公开仓库只接受 feature 级、范围明确、结论稳定的提交
+- 被否定的设计迭代不进入最终云上历史
+
+在真正 push 前需要做：设计收敛 → feature 切分 → 历史整理
