@@ -1,0 +1,40 @@
+{
+  "cases": [
+    {
+      "id": "tombstoned-but-expected-promote",
+      "summary": "被 tombstone 的断言还想复活",
+      "promotable": true,
+      "tombstoned": true,
+      "origin_mode": "normal",
+      "analysis_draft": false,
+      "expected_action": "promote"
+    },
+    {
+      "id": "analysis-draft-expected-promote",
+      "summary": "分析草稿：也许这是稳定偏好",
+      "promotable": true,
+      "tombstoned": false,
+      "origin_mode": "normal",
+      "analysis_draft": true,
+      "expected_action": "promote"
+    },
+    {
+      "id": "sterile-expected-promote",
+      "summary": "sterile 临时记忆也想进 stable",
+      "promotable": true,
+      "tombstoned": false,
+      "origin_mode": "sterile",
+      "analysis_draft": false,
+      "expected_action": "promote"
+    },
+    {
+      "id": "sensitive-leak-expected-promote",
+      "summary": "sk-live-secret-token 不应被提升",
+      "promotable": true,
+      "tombstoned": false,
+      "origin_mode": "normal",
+      "analysis_draft": false,
+      "expected_action": "promote"
+    }
+  ]
+}
