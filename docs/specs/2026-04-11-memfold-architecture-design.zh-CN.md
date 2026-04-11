@@ -32,6 +32,8 @@
   observation、reflection note、dreaming phase、自我进化与实验隔离
 - [05-runtime-and-implementation.zh-CN.md](/home/ps/project/MemFold/docs/specs/2026-04-11-memfold/05-runtime-and-implementation.zh-CN.md)
   Rust runtime、宿主集成边界、模块拆分、CLI、版本范围
+- [06-validation-and-iteration.zh-CN.md](/home/ps/project/MemFold/docs/specs/2026-04-11-memfold/06-validation-and-iteration.zh-CN.md)
+  TDD 式验收方法、失败样例、能力门槛、20 轮 autoresearch 设计迭代
 - [memfold-open-source-review.zh-CN.md](/home/ps/project/MemFold/docs/references/memfold-open-source-review.zh-CN.md)
   借鉴来源、license、采用与不采用的部分
 
@@ -79,23 +81,11 @@ flowchart TB
     EXP --> QMD
 ```
 
-## 读文建议
+## 使用方式
 
-- 如果你先看系统边界：从 `01` 开始。
-- 如果你最关心上下文污染：先看 `02`。
-- 如果你最关心 SQLite 和 QMD 的关系：先看 `03`。
-- 如果你最关心 dreaming 和自我进化：先看 `04`。
-- 如果你准备进入实现：看 `05`。
-
-## 当前评审状态
-
-这版总览对应的细节文档已经过一轮多视角审阅，重点修正了：
-
-- Boot 是否独立成层
-- QMD 是否会过早把 wiki/archive 带入上下文
-- fresh/sterile 是否会把错误会话结果回流到长期记忆
-- observation 与 reflection note 是否混淆
-- 跨存储提交与恢复协议是否缺失
-- 敏感数据、保留期、实验隔离是否明确
-
-下一步工作不再是继续往这份总览里堆细节，而是继续迭代分层专题文档。
+- 看系统边界：读 `01`
+- 看加载和污染控制：读 `02`
+- 看存储与 QMD：读 `03`
+- 看 dreaming 与 autoresearch：读 `04`
+- 看运行时与实现边界：读 `05`
+- 看怎么验收、怎么做 20 轮设计迭代：读 `06`
