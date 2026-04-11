@@ -1,176 +1,175 @@
 # 01 System Overview
 
-## 1. 目标
+## 1. 系统语义
 
-MemFold 的目标是为本地 agent 提供一个：
+MemFold 用五个名字描述五种完全不同的东西：
 
-- 默认低噪声
-- 可跨项目复用
-- 可跨 session 复用
-- 可追溯
-- 可整理
-- 可自评估
+| 名称 | 作用 | 默认是否读取 | 是否长期真相源 |
+|------|------|--------------|----------------|
+| `Boot View` | 启动时的最小上下文 | 是 | 否 |
+| `Stable Memory` | 默认长期记忆 | 是 | 是 |
+| `Evidence Log` | 运行中的结构化证据 | 否 | 是 |
+| `Reference Wiki` | 背景知识与综述 | 否 | 是 |
+| `Trace Archive` | 最深回溯材料 | 否 | 是 |
 
-的分层记忆系统。
+再加一个特殊对象：
 
-它不追求“尽可能多记”，而追求“尽可能少读但足够准”。
+| 名称 | 作用 | 是否可晋升 |
+|------|------|------------|
+| `Reflection Notes` | 解释、调试、推测 | 否 |
 
-## 2. 非目标
+## 2. 主次关系
 
-MemFold 不是：
+默认工作时，优先级固定：
 
-- 通用向量数据库
-- 纯 wiki 产品
-- 自动保存一切原文的长期档案柜
-- 只靠 prompt 堆上下文的记忆增强器
-- MCP-first 的常驻协议服务
+1. `Boot View`
+2. `Stable Memory`
+3. `Evidence Log`
+4. `Reference Wiki`
+5. `Trace Archive`
 
-## 3. 分层模型
+这不是“可选顺序”，而是系统的主次关系。
+
+### 为什么这样排
+
+- `Stable Memory` 才是系统默认相信的长期层。
+- `Evidence Log` 比 wiki 更接近当前工作事实。
+- `Reference Wiki` 更适合解释背景，不适合直接主导当前轮判断。
+- `Trace Archive` 成本最高，也最容易带入无关旧信息。
+
+## 3. 调用关系
 
 ```mermaid
-flowchart TB
-    BOOT[Boot Layer\nDerived View]
-    EM[Effective Memory\nPersistent]
-    OBS[Observation\nPersistent]
-    ARC[Archive\nPersistent]
-    WIKI[Knowledge Wiki\nPersistent]
-    REFL[Reflection Note\nNon-promotable]
+flowchart LR
+    Host[宿主]
+    CLI[memfold CLI]
+    Boot[Boot View]
+    Stable[Stable Memory]
+    Evidence[Evidence Log]
+    Wiki[Reference Wiki]
+    Archive[Trace Archive]
 
-    BOOT --> EM
-    OBS --> EM
-    ARC --> OBS
-    OBS --> WIKI
-    ARC --> WIKI
-    REFL -.not promotable.-> EM
+    Host --> CLI
+    CLI -->|load| Boot
+    Boot --> Stable
+    CLI -->|default recall| Stable
+    CLI -->|need proof| Evidence
+    CLI -->|knowledge lookup| Wiki
+    CLI -->|deep trace| Archive
 ```
 
-## 4. 各层定义
+这个图表达的是“谁先被调用，谁后被调用”，不是数据依赖图。
 
-### 4.1 Effective Memory
+## 4. 各层边界
 
-默认长期记忆层。它承载：
+### 4.1 Boot View
+
+它只是 `Stable Memory` 的编译结果。  
+用途是把启动上下文压到稳定、低噪声、低 token 的范围。
+
+它不是长期真相源，不接受人工长期维护。
+
+### 4.2 Stable Memory
+
+这是系统唯一默认长期影响行为的层。
+
+这里放的应该只有：
 
 - 用户稳定偏好
 - 项目长期约束
-- 经过整理和验证的稳定事实
+- 经整理和验证的稳定事实
 
-它不是原始材料，也不是模型一次性推理结果。
+这里不该放：
 
-### 4.2 Observation
+- 单次推理结果
+- 旧任务路径
+- 原始工具输出
+- 纯背景综述
 
-结构化证据层。它承载：
+### 4.3 Evidence Log
+
+这是当前运行产生的“证据层”。
+
+来源只允许是：
 
 - 用户显式表达
-- 工具调用结果的摘要化结论
-- 代码修改和验证结果
-- 设计决策和显式反馈
+- 工具调用结果
+- 代码修改结果
+- 测试与验证结果
+- 设计决策
+- 用户反馈
 
-它是 dreaming 的正式输入，但不是默认上下文。
+它的语义很简单：
 
-### 4.3 Archive
+- 先记下
+- 不默认载入
+- 等 dreaming 判断是否进入 `Stable Memory`
 
-安全清洗后的追溯层。它承载：
+### 4.4 Reference Wiki
 
-- `archive summary`
-- `archive refs`
-- 必要时的 `raw transcript refs`
+这是背景层，不是决策层。
 
-这里的关键点是：MemFold 不把“无条件保存原始全文”作为默认前提。对系统来说，更重要的是安全引用与可回放，而不是把所有原文永远直接存进主数据层。
+它适合放：
 
-### 4.4 Knowledge Wiki
+- 项目综述
+- 概念说明
+- 实体说明
+- 外部资料总结
 
-浏览和综述层。它适合放：
+只有显式 `knowledge lookup` 时才应该前置。
 
-- 项目背景页
-- 实体页
-- 概念页
-- 主题页
-- 外部资料综述
+### 4.5 Trace Archive
 
-它不应替代当前轮行为决策。
+这是最深回溯层。
 
-### 4.5 Boot Layer
+它只负责一件事：  
+在前面几层都不够时，提供安全清洗后的追溯材料和引用。
 
-Boot Layer 只是加载视图。它从 stable memory 中按规则编译出来，只负责：
+它不是“永远保存原始全文”的借口。
 
-- 安全启动
-- 最小上下文加载
-- 把高频稳定信息控制在小预算内
+### 4.6 Reflection Notes
 
-它不是独立真相源。
+这是调试层，不是事实层。
 
-### 4.6 Reflection Note
-
-只用于解释和调试的反思性注记。它可记录：
+它可以记录：
 
 - dreaming 过程中的分析
 - 检索路径解释
-- 模型的暂时性猜测
+- 暂时性猜测
 
-默认：
+但它默认：
 
-- 不进入 observation
+- 不进入 `Evidence Log`
 - 不参与 boot 编译
-- 不可直接晋升为长期记忆
+- 不可直接晋升为 `Stable Memory`
 
-## 5. 核心术语
+## 5. 关键约束
 
-### 5.1 Memory Mode
+### 5.1 默认少载入
 
-控制会话默认读什么、是否允许自动扩展检索、是否允许写入后续晋升路径。
+只要 `Stable Memory` 足够，就不继续下钻。
 
-### 5.2 Autoload
+### 5.2 错误记忆不可自动复活
 
-控制 stable memory 是否有资格参与 boot 编译。
+被拒绝的 claim 必须由语义墓碑拦住，不能换个 summary 或换组证据后自动回来。
 
-建议枚举：
+### 5.3 敏感信息默认不入记忆
 
-- `none`
-- `boot_user`
-- `boot_project`
-- `manual_only`
+密钥、token、cookie、密码、私钥、助记词、PII、支付信息等不能进入：
 
-### 5.3 User Profile
+- `Stable Memory`
+- `Evidence Log`
+- `Reference Wiki`
+- `Trace Archive` 正文
+- benchmark 和实验集
 
-effective memory 中的用户级受控子集。
+### 5.4 文件可审查，状态可查询
 
-### 5.4 Project Card
+- 内容真相源：`Markdown + JSONL`
+- 状态真相源：`SQLite`
+- 检索加速器：`QMD`
 
-effective memory 中的项目级受控子集。
-
-### 5.5 Knowledge Lookup
-
-显式知识检索意图。只有在这种意图下，wiki 和 archive summary 才允许前置。
-
-## 6. 核心原则
-
-### 6.1 默认少载入
-
-默认只加载稳定、短、低争议的信息。
-
-### 6.2 分层隔离
-
-长期记忆、结构化观察、追溯材料、知识页必须分层。
-
-### 6.3 文件可审查，状态可查询
-
-- 内容真相源：Markdown + JSONL
-- 状态真相源：SQLite
-- 检索加速器：QMD
-
-### 6.4 错误记忆不可自动复活
-
-被拒绝的 claim 必须通过语义墓碑阻止自动复活。
-
-### 6.5 敏感信息默认不入记忆
-
-密钥、token、cookie、密码、私钥、助记词、个人隐私、支付信息等不应进入长期记忆、observation、archive 正文、wiki 或 benchmark。
-
-### 6.6 预算优先
-
-只要已有上下文足够支撑回答，就不继续下钻。
-
-## 7. 宿主边界
+## 6. 宿主边界
 
 MemFold 服务于：
 
@@ -178,30 +177,5 @@ MemFold 服务于：
 - Claude Code
 - OpenClaw
 
-但不内嵌宿主生命周期。宿主只负责触发：
-
-- load
-- search
-- write_observation
-- feedback
-- dream_run
-
-核心系统负责：
-
-- 筛选和加载
-- 状态机
-- dreaming
-- 检索路由
-- 自我进化评估
-
-## 8. 这一层文档不讨论什么
-
-本文件只定义系统边界，不展开：
-
-- 三种模式下的读取细则
-- QMD 的索引契约
-- SQLite 表字段
-- dreaming 状态机
-- CLI 子命令
-
-这些分别见 `02`、`03`、`04`、`05`。
+但不嵌进宿主生命周期。  
+宿主只做触发，MemFold 负责真正的加载、筛选、整理和回溯。

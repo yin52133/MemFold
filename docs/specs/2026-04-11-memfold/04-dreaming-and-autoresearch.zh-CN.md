@@ -1,55 +1,58 @@
 # 04 Dreaming And Autoresearch
 
-## 1. Observation Ingress Gate
+## 1. Dreaming 的语义
 
-Observation 写入前必须经过安全清洗：
+Dreaming 不是“模型自由发挥”，而是把 `Evidence Log` 整理成 `Stable Memory` 的过程。
+
+它的输入只能是：
+
+- 可晋升的证据
+- 安全清洗后的追溯摘要
+- 现有稳定记忆的比较项
+
+它不能直接消费：
+
+- `Reflection Notes`
+- 原始敏感正文
+- `sterile` 模式下默认产生的临时证据
+
+## 2. Evidence Ingress Gate
+
+证据写入前必须先过安全闸门：
 
 - 密钥与 token 识别
 - cookie / session 识别
 - 私钥 / 助记词识别
-- 明显 PII 识别
+- PII 识别
 - 长文本截断与摘要化
-- 高风险原文替换为标签或外部引用
+- 高风险原文替换为标签或引用
 
-无法确认是否敏感时，默认不写 observation 正文。
+无法判断是否敏感时，默认不写证据正文。
 
-## 2. Observation 与 Reflection Note
+## 3. Evidence 与 Reflection Notes
 
-Observation 的合法来源：
+Evidence 的合法来源：
 
 - 用户显式表达
 - 工具调用结果
 - 代码修改结果
-- 测试/验证结果
+- 测试 / 验证结果
 - 设计决策
 - 用户反馈
 
-Reflection Note 只记录：
+Reflection Notes 只记录：
 
 - 模型猜测
-- dreaming 反思
-- 未绑定证据的总结
+- dreaming 过程分析
 - 检索路径解释
 
 默认规则：
 
-- Reflection Note 不进入 boot
-- Reflection Note 不可直接晋升
-- Dreaming 不直接消费 Reflection Note
+- `Reflection Notes` 不进入 boot
+- `Reflection Notes` 不可直接晋升
+- `Dreaming` 不直接消费 `Reflection Notes`
 
-## 3. Dreaming 的职责
-
-Dreaming 只负责：
-
-- observation 去重
-- 主题聚类
-- 跨 session 复现信号强化
-- 冲突识别
-- `promote / merge / demote / reject / quarantine`
-
-它不负责直接编造新事实。
-
-## 4. Dreaming 阶段
+## 4. Dreaming 的阶段
 
 ```mermaid
 flowchart LR
@@ -57,25 +60,13 @@ flowchart LR
     R --> D[deep\n决策/解释]
 ```
 
-- `light`：去重、聚类、基本主题归并
-- `rem`：强化复现、识别关系、检测冲突
-- `deep`：给出决策并写 explain
+阶段职责：
 
-## 5. Dreaming 输入
+- `light`：把证据收成清晰的候选簇
+- `rem`：判断复现、关系和冲突
+- `deep`：给出 `promote / merge / demote / reject / quarantine`
 
-正式输入只有：
-
-- `promotable = true` 的 observation
-- 安全清洗后的 archive 摘要
-- 已有 stable memory 的比较项
-
-不消费：
-
-- reflection note
-- raw 敏感正文
-- sterile 模式下默认产出的临时 observation
-
-## 6. Dreaming 状态机
+## 5. Dreaming 状态机
 
 ```mermaid
 stateDiagram-v2
@@ -98,28 +89,15 @@ stateDiagram-v2
 - 幂等
 - 可追踪
 - 可回滚
-- 单次失败不污染 stable memory
+- 单次失败不污染稳定记忆
 
-## 7. Promotion 评分维度
-
-- 跨 session 复现次数
-- 用户显式确认
-- 查询命中频次
-- 正向反馈
-- 项目相关性
-- 实体丰富度
-- 最近验证时间
-- 冲突惩罚
-- 时效衰减
-- 被否决历史
-
-## 8. 错误记忆隔离
+## 6. 错误记忆隔离
 
 触发条件：
 
 - 用户明确说“这个不对”
 - 用户要求“忽略上次结论”
-- 当前事实与 stable memory 冲突
+- 当前事实与稳定记忆冲突
 - retrieval 后负反馈集中出现
 
 处理动作：
@@ -127,75 +105,108 @@ stateDiagram-v2
 - 标记为 `disputed` 或 `rejected`
 - 从 boot 编译源移除
 - 写入 claim tombstone
-- 下调关联 observation 信任
+- 下调关联证据信任
 
 恢复要求：
 
 - 新证据链
 - 显式复核
 
-## 9. Autoresearch
+## 7. 能力验收
 
-Autoresearch 只优化策略，不直接替代生产路径。它可以调整：
+### 7.1 错误记忆不可复活
 
-- observation 写入条件
+失败样例：
+
+- 换 summary 重新晋升
+- 换证据重新晋升
+
+通过门槛：
+
+- 被 tombstone 命中的 claim 自动晋升率为 0
+
+### 7.2 Dreaming 不自我污染
+
+失败样例：
+
+- `Reflection Notes` 被当成 evidence 晋升
+
+通过门槛：
+
+- 纯反思输入的晋升率为 0
+
+### 7.3 敏感信息不入库
+
+失败样例：
+
+- token / cookie / private key 出现在 JSONL、Markdown、SQLite、QMD、benchmark
+
+通过门槛：
+
+- 原文泄漏率为 0
+
+## 8. Autoresearch 的语义
+
+Autoresearch 不直接改生产记忆，它只优化“记忆系统自己的策略”。
+
+它可以优化：
+
+- 证据写入条件
 - 检索路由顺序
 - boot 编译策略
 - dreaming 阈值和评分
 
-实验闭环：
-
-1. `modify`
-2. `verify`
-3. `keep or discard`
-4. `repeat`
-
-## 10. 实验环境硬隔离
+## 9. 实验环境隔离
 
 `memfold experiment run` 必须：
 
 - 基于只读内容快照
 - 使用独立 SQLite 状态路径
-- 使用独立 QMD collection / 索引路径
-- 不允许调用生产写入命令
+- 使用独立 QMD 索引路径
 - 不允许改 live memory 文件
-- 不允许改生产 boot bundle
+- 不允许改生产 boot
 
 策略进生产必须走显式 promote。
 
-## 11. 评估指标
+## 10. 20 轮设计迭代
 
-### 11.1 hard gate
+这 20 轮不是 20 次随意改稿，而是 20 次围绕失败样例和门槛的定向迭代。
 
-- `false_memory_rate`
-- `contradiction_rate`
-- `boot_pollution_rate`
+### 10.1 加载与污染
 
-任一超阈值，不得进生产。
+1. boot 编译规则
+2. mode 隔离
+3. source gating
+4. token 裁剪
+5. 错误记忆复活防护
 
-### 11.2 soft objective
+### 10.2 索引与回指
 
-- `useful_recall_at_k`
-- `promotion_precision`
-- `promotion_recall`
-- `token_cost`
-- `latency`
+6. QMD 文档模型
+7. 热路径查询
+8. 增量同步
+9. 全量重建
+10. rename/delete 后回指稳定性
 
-### 11.3 记录要求
+### 10.3 跨存储一致性
 
-每次实验必须记录：
+11. mutation 状态机
+12. 崩溃恢复
+13. repair 顺序
+14. 锁与并发
+15. 备份与恢复
 
-- 样本量
-- 基线版本
-- 切片结果
-- 通过/失败原因
+### 10.4 Dreaming 与安全
 
-## 12. 回放样本边界
+16. evidence ingress gate
+17. reflection 隔离
+18. promotion precision
+19. redaction propagation
+20. experiment/prod hard isolation
 
-Autoresearch 默认只处理：
+每一轮都必须产出：
 
-- 脱敏后的回放样本
-- 已标注 benchmark
-- 受控实验数据
-
-不应把生产中的完整用户记忆正文拿去做自由试验。
+- 失败样例
+- 当前机制
+- 验收方法
+- 通过 / 失败结果

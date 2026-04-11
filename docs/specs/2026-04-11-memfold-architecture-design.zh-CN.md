@@ -3,89 +3,66 @@
 - 状态：Draft
 - 日期：2026-04-11
 - 语言：中文工作稿
-- 范围：MemFold v1 总体设计导航
 
-这份文件现在只负责总览和导航，不再承载全部细节。详细设计已拆到分层文档中，避免主稿变成一篇过长的连续说明文。
+MemFold 不是“把所有历史都存起来再想办法搜”的系统。\
+它的目标是用最少的默认上下文，稳定支持跨项目、跨 session 的 agent 工作。
 
-## 核心结论
+系统的核心判断只有三条：
 
-- MemFold 是一个本地优先、跨项目、跨 session 复用的分层记忆系统。
-- 主核心采用 `Rust + CLI-first`，不以 MCP 为主接口。
-- 存储采用混合结构：
-  - `Markdown`：长期有效记忆与知识页
-  - `JSONL`：observation、archive、raw event 投影
-  - `SQLite`：状态、索引控制、作业、关系、锁
-  - `QMD`：检索 sidecar，不是真相源
-- `Boot Layer` 不是独立长期层，而是从 stable memory 编译出的加载视图。
-- 默认策略是 `默认少载入、按需下钻、错误记忆不可自动复活`。
-- 敏感信息不应进入长期记忆、observation、archive 正文或实验集。
+1. 默认只读 `稳定记忆`
+2. 不够时先查 `证据日志`
+3. 还不够才查 `参考知识` 和 `追溯档案`
 
-## 文档地图
+## 文档结构
 
 - [01-system-overview.zh-CN.md](/home/ps/project/MemFold/docs/specs/2026-04-11-memfold/01-system-overview.zh-CN.md)
-  系统定位、层级模型、核心术语、边界定义
+  术语、层级、主次关系
 - [02-loading-and-retrieval.zh-CN.md](/home/ps/project/MemFold/docs/specs/2026-04-11-memfold/02-loading-and-retrieval.zh-CN.md)
-  启动加载、三种模式、检索路径、token 控制、错误记忆隔离
+  启动、续做、知识检索、写入四条运行流
 - [03-storage-and-qmd.zh-CN.md](/home/ps/project/MemFold/docs/specs/2026-04-11-memfold/03-storage-and-qmd.zh-CN.md)
-  SQLite / Markdown / JSONL / QMD 的职责、提交恢复协议、保留期、可移植性
+  真相源、状态层、QMD、跨存储提交与恢复
 - [04-dreaming-and-autoresearch.zh-CN.md](/home/ps/project/MemFold/docs/specs/2026-04-11-memfold/04-dreaming-and-autoresearch.zh-CN.md)
-  observation、reflection note、dreaming phase、自我进化与实验隔离
+  dreaming 语义、错误记忆隔离、20 轮设计迭代
 - [05-runtime-and-implementation.zh-CN.md](/home/ps/project/MemFold/docs/specs/2026-04-11-memfold/05-runtime-and-implementation.zh-CN.md)
-  Rust runtime、宿主集成边界、模块拆分、CLI、版本范围
-- [06-validation-and-iteration.zh-CN.md](/home/ps/project/MemFold/docs/specs/2026-04-11-memfold/06-validation-and-iteration.zh-CN.md)
-  TDD 式验收方法、失败样例、能力门槛、20 轮 autoresearch 设计迭代
+  CLI、模块、实施阶段
 - [memfold-open-source-review.zh-CN.md](/home/ps/project/MemFold/docs/references/memfold-open-source-review.zh-CN.md)
-  借鉴来源、license、采用与不采用的部分
+  外部借鉴与 license
 
-## 一图看全局
+## 总体图
 
 ```mermaid
 flowchart TB
-    Host[Codex / Claude Code / OpenClaw]
+    Host[宿主\nCodex / Claude Code / OpenClaw]
     CLI[memfold CLI]
 
-    subgraph Persistent["Persistent Layers"]
-        EM[Effective Memory]
-        OBS[Observation Log]
-        ARC[Archive]
-        WIKI[Knowledge Wiki]
-    end
-
-    subgraph Derived["Derived Views / Control"]
-        BOOT[Boot Bundle]
-        DB[SQLite State]
-        QMD[QMD Index]
-    end
-
-    subgraph Background["Background Systems"]
-        DREAM[Dreaming]
-        EXP[Autoresearch]
-    end
+    Boot[启动视图\nBoot View\n仅启动加载]
+    Stable[稳定记忆\nStable Memory\n默认决策层]
+    Evidence[证据日志\nEvidence Log\n候选事实层]
+    Wiki[参考知识\nReference Wiki\n背景说明层]
+    Archive[追溯档案\nTrace Archive\n最深回溯层]
+    Dream[Dreaming\n整理与晋升]
+    Notes[反思注记\nReflection Notes\n不可直接晋升]
 
     Host --> CLI
-    CLI --> BOOT
-    CLI --> EM
-    CLI --> OBS
-    CLI --> ARC
-    CLI --> WIKI
-    CLI --> DB
-    CLI --> QMD
-    OBS --> DREAM
-    ARC --> DREAM
-    DREAM --> EM
-    DREAM --> BOOT
-    EM --> QMD
-    WIKI --> QMD
-    ARC --> QMD
-    EXP --> DB
-    EXP --> QMD
+    CLI -->|启动| Boot
+    Boot -->|编译来源| Stable
+    CLI -->|默认读取| Stable
+    CLI -->|缺信息时| Evidence
+    CLI -->|显式知识检索| Wiki
+    CLI -->|最后回溯| Archive
+
+    CLI -->|写入运行结果| Evidence
+    Evidence --> Dream
+    Archive --> Dream
+    Dream --> Stable
+    Notes -.只用于解释.-> Dream
 ```
 
-## 使用方式
+## 一句话原则
 
-- 看系统边界：读 `01`
-- 看加载和污染控制：读 `02`
-- 看存储与 QMD：读 `03`
-- 看 dreaming 与 autoresearch：读 `04`
-- 看运行时与实现边界：读 `05`
-- 看怎么验收、怎么做 20 轮设计迭代：读 `06`
+- `Boot View` 不是一层记忆，只是 `稳定记忆` 的派生视图。
+- `稳定记忆` 是默认层，只有这里的内容才有资格长期影响行为。
+- `证据日志` 不是长期记忆，它只是给 dreaming 提供正式输入。
+- `参考知识` 只用于背景理解，不应覆盖当前任务事实。
+- `追溯档案` 是最后一层，不应被默认载入。
+

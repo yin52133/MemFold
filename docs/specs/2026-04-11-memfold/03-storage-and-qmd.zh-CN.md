@@ -1,20 +1,20 @@
 # 03 Storage And QMD
 
-## 1. 存储角色
+## 1. 存储分工
 
-| 组件 | 角色 | 是否真相源 |
+| 组件 | 职责 | 是否真相源 |
 |------|------|------------|
-| `Markdown` | effective memory / wiki / profile / project card | 是 |
-| `JSONL` | observation log / archive / raw event projection | 是 |
-| `SQLite` | 状态、关系、分数、作业、锁、索引控制 | 是，仅限状态 |
-| `boot bundle` | 启动加载视图 | 否，派生物 |
-| `QMD index` | 检索 sidecar | 否，派生缓存 |
+| `Markdown` | Stable Memory / Reference Wiki / Profile / Project Card | 是 |
+| `JSONL` | Evidence Log / Trace Archive / Raw Event Projection | 是 |
+| `SQLite` | 状态、关系、分数、作业、锁 | 是，仅限状态 |
+| `Boot View` | 启动视图 | 否，派生物 |
+| `QMD` | 检索 sidecar | 否，派生缓存 |
 
 硬规则：
 
 - 内容真相源：`Markdown + JSONL`
 - 状态真相源：`SQLite`
-- 派生层：`boot bundle + QMD`
+- 派生层：`Boot View + QMD`
 
 ## 2. 目录结构
 
@@ -22,41 +22,40 @@
 MemFold/
 ├── memory/
 │   ├── user/
-│   │   ├── effective/
+│   │   ├── stable/
 │   │   ├── boot/
 │   │   ├── wiki/
 │   │   └── archive/
 │   ├── projects/<project-slug>/
-│   │   ├── effective/
+│   │   ├── stable/
 │   │   ├── boot/
 │   │   ├── wiki/
 │   │   ├── archive/
 │   │   └── sessions/<session-id>/
-│   │       ├── observations.jsonl
+│   │       ├── evidence.jsonl
 │   │       └── raw-events.jsonl
 ├── state/memfold.db
-├── state/backups/
-├── qmd/config/
-├── qmd/collections/
-└── runtime/{locks,jobs,cache}/
+├── qmd/
+└── runtime/
 ```
 
-说明：`boot/bundle.md` 是派生物，不是人工真相源；`runtime/locks/` 只用于诊断，不是锁真相源。
+说明：
 
-## 3. Observation 与 Memory Item
+- `boot/` 是派生目录
+- `runtime/locks/` 若存在，只用于诊断，不是锁真相源
 
-### 3.1 Observation 的真相源
+## 3. Evidence Log 与 Memory Item
 
-- observation 正文真相源：append-only JSONL
-- SQLite：observation 的投影、状态、关系、分数
+### 3.1 Evidence Log 的真相源
+
+- evidence 正文真相源：append-only JSONL
+- SQLite：evidence 的投影、状态、关系、分数
 
 ### 3.2 Memory Item 的最小单位
 
-第一版把一个 memory item 定义为：
+一个 memory item = 一个 Markdown 文件中的一个稳定 block。
 
-- 一个 Markdown 文件中的一个稳定 block
-
-每个 block 至少带：
+每个 block 至少有：
 
 - `item_key`
 - `title`
@@ -69,24 +68,21 @@ MemFold/
 - `content_hash` 检测人工修改
 - `revision / supersedes_id / deleted_at` 表示版本链
 
-## 4. SQLite 关键表
+## 4. SQLite 的职责
 
-核心表只保留职责，不在这里展开字段大全：
+SQLite 存状态，不存唯一正文真相源。
+
+最关键的表：
 
 - `memory_items`
-- `observations`
-- `archives`
-- `memory_links`
-- `dream_jobs`
-- `promotion_candidates`
-- `feedback_events`
-- `retrieval_events`
+- `evidence_items`
+- `trace_archives`
 - `mutations`
 - `sessions`
 - `lock_leases`
 - `tombstones`
 
-关键含义：
+重点：
 
 - `mutations`：跨存储变更协议
 - `lock_leases`：唯一锁真相源
@@ -98,7 +94,7 @@ MemFold/
 
 - `SQLite lease`
 
-最小锁字段：
+最小字段：
 
 - `lock_key`
 - `owner`
@@ -108,13 +104,13 @@ MemFold/
 
 适用命令：
 
-- `write_observation`
+- `write_evidence`
 - `dream_run`
 - `bundle_compile`
 - `qmd_sync`
 - `repair`
 
-## 6. 跨存储提交与恢复协议
+## 6. 跨存储提交与恢复
 
 ```mermaid
 flowchart TD
@@ -123,28 +119,28 @@ flowchart TD
     C[Atomic rename into content store]
     D[Mark applied_to_content]
     E[Enqueue derived jobs]
-    F[Compile boot bundle]
+    F[Compile Boot View]
     G[Sync QMD]
     H[Mark fully_applied]
     A --> B --> C --> D --> E --> F --> G --> H
 ```
 
-提交顺序：
+顺序固定：
 
-1. 在 `SQLite` 创建 mutation，状态 `pending`
-2. 生成目标内容到临时文件
-3. 原子 rename 替换目标文件
-4. mutation 更新为 `applied_to_content`
-5. 生成 `pending_bundle_compile` 和 `pending_qmd_sync`
-6. 派生步骤完成后标记 `fully_applied`
+1. SQLite 建 mutation
+2. 内容层写临时文件
+3. 原子替换内容层
+4. mutation 标记为 `applied_to_content`
+5. 生成 boot/QMD 派生作业
+6. 派生完成后标记 `fully_applied`
 
 恢复规则：
 
-- 启动时扫描未完成 mutation
-- 内容已落地但派生层未完成，只补派生步骤
+- 启动先扫未完成 mutation
+- 内容已落地但派生未完成，只补派生步骤
 - 内容落地不完整，回滚到前一版本
 
-`repair` 优先级固定为：
+`repair` 顺序固定为：
 
 `content store -> SQLite projection -> derived layers`
 
@@ -152,7 +148,10 @@ flowchart TD
 
 QMD 是检索 sidecar，不是状态真相源。
 
-QMD 负责：`effective/wiki/archive` 索引，以及 path/topic/collection 查询。
+QMD 负责：
+
+- `stable` / `reference-wiki` / `trace-archive` 索引
+- path/topic/collection 查询
 
 QMD 不负责：
 
@@ -160,12 +159,11 @@ QMD 不负责：
 - 自动加载决策
 - 冲突处理
 - dreaming 决策
-- rejected/quarantine 管理
 - 跨存储提交事务
 
-## 8. QMD 文档模型契约
+## 8. QMD 文档契约
 
-QMD 文档至少包含：
+QMD 文档至少带：
 
 - `doc_id`
 - `source_type`
@@ -176,45 +174,33 @@ QMD 文档至少包含：
 
 要求：
 
-- `pointer` 必须能稳定回指真相源
+- `pointer` 能稳定回指真相源
 - `relative_path` 必须是 canonical relative path
-- QMD 索引始终视为可丢弃重建缓存
+- QMD 始终可丢弃重建
 
 ## 9. 索引检索验收
 
-第一版需要具备最低性能门槛：
+第一版的最低门槛：
 
 - 热路径精确查找：`p50 < 50ms`，`p95 < 150ms`
 - 常规混合检索：`p50 < 150ms`，`p95 < 400ms`
 - 全量重建必须可执行
-- 增量同步必须不破坏稳定回指
+- 增量同步不得破坏稳定回指
 
 最小失败样例：
 
-- 文件 rename 后索引结果回指失效
+- rename 后回指失效
 - 删除或脱敏后旧索引仍命中
-- 增量同步后同一内容出现重复命中
-- QMD 可用但 SQLite 状态缺失，结果仍被当成稳定记忆
+- 增量同步后同一内容重复命中
+- QMD 可用但 SQLite 状态缺失时，结果仍被误当稳定记忆
 
-## 10. 可移植性
+## 10. 可移植性与删除传播
 
-为了可搬迁、可 fork、可恢复：
+为了可搬迁、可恢复：
 
-- 状态中只存 canonical relative path
+- 主状态只存 canonical relative path
 - 同时存 `content_hash`
 - 不把绝对路径写进主状态
-- 不依赖宿主临时目录
-
-## 11. 保留期与删除传播
-
-最小 retention 规则：
-
-- `boot bundle`：只保留当前编译结果
-- `effective memory`：长期保留，superseded 版本不自动加载
-- `observation`：长期但可清理
-- `archive`：可保留，但必须可删改和裁剪
-- `experiment artifacts`：短期保留
-- `backups`：必须 prune
 
 删除或脱敏必须同步传播到：
 
@@ -224,4 +210,4 @@ QMD 文档至少包含：
 - backup
 - cache
 
-`sterile` 产生的材料必须可一键清理。
+`sterile` 产生的临时材料必须可一键清理。
