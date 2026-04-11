@@ -63,8 +63,8 @@ MemFold 只保留 5 个需要理解的层：
   启动、续做、知识检索、重开四条运行流
 - [03-storage-and-qmd.zh-CN.md](/home/ps/project/MemFold/docs/specs/2026-04-11-memfold/03-storage-and-qmd.zh-CN.md)
   真相源、状态层、QMD、恢复与删除传播
-- [04-dreaming-and-autoresearch.zh-CN.md](/home/ps/project/MemFold/docs/specs/2026-04-11-memfold/04-dreaming-and-autoresearch.zh-CN.md)
-  dreaming 保留逻辑、错误记忆隔离、20 轮迭代方法
+- [04-dreaming-and-retention.zh-CN.md](/home/ps/project/MemFold/docs/specs/2026-04-11-memfold/04-dreaming-and-retention.zh-CN.md)
+  dreaming 保留逻辑、错误记忆隔离、规则与验收
 - [05-runtime-and-implementation.zh-CN.md](/home/ps/project/MemFold/docs/specs/2026-04-11-memfold/05-runtime-and-implementation.zh-CN.md)
   CLI、模块、实施顺序、提交策略
 - [memfold-open-source-review.zh-CN.md](/home/ps/project/MemFold/docs/references/memfold-open-source-review.zh-CN.md)
