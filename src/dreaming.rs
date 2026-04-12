@@ -50,7 +50,7 @@ pub fn run_dream(config: &MemfoldConfig, scope: &ScopeRef, trigger: &str) -> Res
     let candidates = {
         let mut stmt = conn.prepare(
             "SELECT id, summary, claim_fingerprint, source_kind, origin_mode
-             FROM evidence_items
+             FROM session_log_entries
              WHERE scope_type = ?1 AND scope_id = ?2 AND promotable = 1
              ORDER BY created_at",
         )?;

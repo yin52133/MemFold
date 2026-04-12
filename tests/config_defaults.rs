@@ -8,7 +8,7 @@ fn scope_ref_formats_scope_key_and_dir_fragment() {
     let user = ScopeRef::new(ScopeType::User, "alice").unwrap();
 
     assert_eq!(project.scope_key(), "project:memfold");
-    assert_eq!(project.scope_dir_fragment(), "projects/memfold");
+    assert_eq!(project.scope_dir_fragment(), "repos/memfold");
     assert_eq!(user.scope_key(), "user:alice");
     assert_eq!(user.scope_dir_fragment(), "user");
     assert_eq!(Mode::Normal.as_str(), "normal");
@@ -34,7 +34,7 @@ fn default_config_resolves_expected_paths_and_parent_dirs() {
     assert_eq!(config.root, tmp.path().to_path_buf());
     assert_eq!(config.default_mode, Mode::Normal);
     assert_eq!(config.state_db_path(), tmp.path().join("state").join("memfold.db"));
-    assert_eq!(config.project_root(&scope), tmp.path().join("memory").join("projects").join("memfold"));
+    assert_eq!(config.project_root(&scope), tmp.path().join("memory").join("repos").join("memfold"));
     assert_eq!(config.config_file_path(), tmp.path().join("config").join("config.toml"));
 
     MemfoldConfig::ensure_parent_dir(&nested).unwrap();

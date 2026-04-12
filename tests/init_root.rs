@@ -22,5 +22,5 @@ fn initialize_root_creates_required_foundation_layout() {
             .any(|path| path.ends_with("state/memfold.db"))
     );
     assert!(tmp.path().join("memory").join("user").join("stable").exists());
-    assert!(tmp.path().join("memory").join("projects").exists());
+    assert!(tmp.path().join("memory").join("repos").exists());
 }

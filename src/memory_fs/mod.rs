@@ -27,6 +27,15 @@ impl MemoryFs {
         jsonl::append_jsonl_line(&path, line)
     }
 
+    pub fn append_session_log_jsonl(
+        &self,
+        scope: &ScopeRef,
+        session_id: &str,
+        line: &str,
+    ) -> Result<usize> {
+        self.append_evidence_jsonl(scope, session_id, line)
+    }
+
     pub fn write_project_bundle(&self, scope: &ScopeRef, contents: &str) -> Result<()> {
         let path = paths::project_bundle_path(&self.config, scope);
         markdown::write_markdown_file(&path, contents)

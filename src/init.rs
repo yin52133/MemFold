@@ -13,7 +13,7 @@ pub fn initialize_root(config: &MemfoldConfig) -> Result<InitSummary> {
     fs::create_dir_all(config.root.join("config"))?;
     fs::create_dir_all(config.root.join("state"))?;
     fs::create_dir_all(config.root.join("memory").join("user").join("stable"))?;
-    fs::create_dir_all(config.root.join("memory").join("projects"))?;
+    fs::create_dir_all(config.root.join("memory").join("repos"))?;
 
     let config_file_path = config.config_file_path();
     fs::write(&config_file_path, "default_mode = \"normal\"\n")?;

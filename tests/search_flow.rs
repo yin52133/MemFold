@@ -65,7 +65,7 @@ fn write_stable_file(path: &std::path::Path, body: &str) {
 }
 
 fn write_supporting_content(config: &MemfoldConfig, scope: &ScopeRef) {
-    let stable_dir = config.root.join("memory").join("projects").join(&scope.scope_id).join("stable");
+    let stable_dir = config.root.join("memory").join("repos").join(&scope.scope_id).join("stable");
     write_stable_file(
         &stable_dir.join("card.md"),
         "## item_key: project.rule.alpha\n\
@@ -104,7 +104,7 @@ fn sync_scope_builds_sidecar_records_for_stable_evidence_and_archive_sources() {
         "project",
         "memfold",
         "project.rule.alpha",
-        "memory/projects/memfold/stable/card.md",
+        "memory/repos/memfold/stable/card.md",
         "Alpha rule",
         "2026-04-12T10:00:00Z",
     );
@@ -129,27 +129,27 @@ fn sync_scope_builds_sidecar_records_for_stable_evidence_and_archive_sources() {
     let records = load_scope_records(&config, &scope).unwrap();
     assert_eq!(records.len(), 3);
     assert!(records.iter().any(|record| record.source_type == "stable"));
-    assert!(records.iter().any(|record| record.source_type == "evidence"));
-    assert!(records.iter().any(|record| record.source_type == "archive"));
+    assert!(records.iter().any(|record| record.source_type == "session_log"));
+    assert!(records.iter().any(|record| record.source_type == "history"));
 
     let stable = records.iter().find(|record| record.source_type == "stable").unwrap();
     assert_eq!(stable.doc_id, "mem_alpha");
     assert_eq!(stable.scope_type, "project");
     assert_eq!(stable.scope_id, "memfold");
-    assert_eq!(stable.relative_path, "memory/projects/memfold/stable/card.md");
-    assert_eq!(stable.pointer, "memory/projects/memfold/stable/card.md#project.rule.alpha");
+    assert_eq!(stable.relative_path, "memory/repos/memfold/stable/card.md");
+    assert_eq!(stable.pointer, "memory/repos/memfold/stable/card.md#project.rule.alpha");
     assert_eq!(stable.status, "stable");
     assert_eq!(stable.summary, "stable alpha memory");
     assert_eq!(stable.updated_at, "2026-04-12T10:00:00Z");
 
     let evidence_record = records
         .iter()
-        .find(|record| record.source_type == "evidence")
+        .find(|record| record.source_type == "session_log")
         .unwrap();
     assert_eq!(evidence_record.doc_id, evidence.evidence_id);
     assert_eq!(
         evidence_record.relative_path,
-        "memory/projects/memfold/sessions/sess_search/evidence.jsonl"
+        "memory/repos/memfold/sessions/sess_search/session_log.jsonl"
     );
     assert!(evidence_record.pointer.ends_with("#1"));
     assert_eq!(evidence_record.summary, "shared gamma evidence");
@@ -169,7 +169,7 @@ fn search_memories_auto_syncs_missing_qmd_and_orders_by_intent() {
         "project",
         "memfold",
         "project.rule.alpha",
-        "memory/projects/memfold/stable/card.md",
+        "memory/repos/memfold/stable/card.md",
         "Alpha rule",
         "2026-04-12T10:00:00Z",
     );
@@ -197,7 +197,7 @@ fn search_memories_auto_syncs_missing_qmd_and_orders_by_intent() {
     )
     .unwrap();
     assert!(!continue_results.results.is_empty());
-    assert_eq!(continue_results.results[0].source_type, "evidence");
+    assert_eq!(continue_results.results[0].source_type, "history");
 
     let knowledge_results = search_memories(
         &config,
@@ -208,13 +208,13 @@ fn search_memories_auto_syncs_missing_qmd_and_orders_by_intent() {
     )
     .unwrap();
     assert!(!knowledge_results.results.is_empty());
-    assert_eq!(knowledge_results.results[0].source_type, "archive");
+    assert_eq!(knowledge_results.results[0].source_type, "history");
 
     let sidecar = config
         .root
         .join("qmd")
         .join("collections")
-        .join("projects")
+        .join("repos")
         .join("memfold")
         .join("stable.jsonl");
     assert!(sidecar.exists());

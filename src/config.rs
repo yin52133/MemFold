@@ -23,7 +23,7 @@ impl MemfoldConfig {
     pub fn project_root(&self, scope: &ScopeRef) -> PathBuf {
         match scope.scope_type {
             ScopeType::User => self.root.join("memory").join("user"),
-            ScopeType::Project => self.root.join("memory").join("projects").join(&scope.scope_id),
+            ScopeType::Project => self.root.join("memory").join("repos").join(&scope.scope_id),
         }
     }
 

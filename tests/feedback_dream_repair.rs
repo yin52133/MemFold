@@ -52,7 +52,7 @@ fn dream_promotes_promotable_evidence_and_feedback_rejects_with_tombstone() {
 
     let stable_file = root
         .join("memory")
-        .join("projects")
+        .join("repos")
         .join("memfold")
         .join("stable")
         .join("rules.md");
@@ -217,4 +217,12 @@ fn repair_rebuilds_trace_archives_projection() {
         .query_row("SELECT COUNT(*) FROM trace_archives", [], |row| row.get(0))
         .unwrap();
     assert_eq!(after, 1);
+
+    let history_dir = root
+        .join("memory")
+        .join("repos")
+        .join("memfold")
+        .join("history")
+        .join("daily");
+    assert!(history_dir.exists());
 }

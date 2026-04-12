@@ -151,7 +151,7 @@ fn validate_summary(summary: &str) -> Result<()> {
 fn evidence_exists(conn: &Connection, evidence_id: &str) -> Result<bool> {
     let exists = conn
         .query_row(
-            "SELECT EXISTS(SELECT 1 FROM evidence_items WHERE id = ?1)",
+            "SELECT EXISTS(SELECT 1 FROM session_log_entries WHERE id = ?1)",
             params![evidence_id],
             |row| row.get::<_, i64>(0),
         )?
@@ -169,7 +169,7 @@ fn insert_evidence_item(
     created_at: &str,
 ) -> Result<()> {
     tx.execute(
-        "INSERT INTO evidence_items (
+        "INSERT INTO session_log_entries (
             id,
             session_id,
             scope_type,
@@ -387,14 +387,14 @@ fn open_connection(config: &MemfoldConfig) -> Result<Connection> {
 
 fn relative_session_evidence_path(scope: &ScopeRef, session_id: &str) -> String {
     format!(
-        "memory/{}/sessions/{session_id}/evidence.jsonl",
+        "memory/{}/sessions/{session_id}/session_log.jsonl",
         scope.scope_dir_fragment()
     )
 }
 
 fn relative_archive_path(scope: &ScopeRef, archive_date: &str) -> String {
     format!(
-        "memory/{}/archive/memory-{archive_date}.md",
+        "memory/{}/history/daily/{archive_date}.md",
         scope.scope_dir_fragment()
     )
 }

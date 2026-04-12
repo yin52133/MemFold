@@ -48,7 +48,7 @@ revision: 1\n\n\
     write_stable_file(
         &root
             .join("memory")
-            .join("projects")
+            .join("repos")
             .join("memfold")
             .join("stable")
             .join("project-card.md"),
@@ -132,11 +132,11 @@ fn cli_write_evidence_returns_structured_json_and_persists_entry() {
 
     let evidence_path = root
         .join("memory")
-        .join("projects")
+        .join("repos")
         .join("memfold")
         .join("sessions")
         .join("sess_cli")
-        .join("evidence.jsonl");
+        .join("session_log.jsonl");
     assert!(evidence_path.exists());
     assert!(fs::read_to_string(evidence_path)
         .unwrap()

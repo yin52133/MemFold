@@ -20,11 +20,11 @@ pub fn stable_dir(config: &MemfoldConfig, scope: &ScopeRef) -> PathBuf {
 }
 
 pub fn archive_dir(config: &MemfoldConfig, scope: &ScopeRef) -> PathBuf {
-    scope_root(config, scope).join("archive")
+    scope_root(config, scope).join("history").join("daily")
 }
 
 pub fn archive_daily_path(config: &MemfoldConfig, scope: &ScopeRef, date: &str) -> PathBuf {
-    archive_dir(config, scope).join(format!("memory-{date}.md"))
+    archive_dir(config, scope).join(format!("{date}.md"))
 }
 
 pub fn sessions_dir(config: &MemfoldConfig, scope: &ScopeRef) -> PathBuf {
@@ -40,5 +40,5 @@ pub fn session_evidence_path(
     scope: &ScopeRef,
     session_id: &str,
 ) -> PathBuf {
-    session_dir(config, scope, session_id).join("evidence.jsonl")
+    session_dir(config, scope, session_id).join("session_log.jsonl")
 }

@@ -245,5 +245,5 @@ cargo test
 - [Codex QMD Guide](./docs/integrations/codex/qmd.zh-CN.md)
 - [hooks/README.zh-CN.md](./hooks/README.zh-CN.md)
 - [plugins/README.zh-CN.md](./plugins/README.zh-CN.md)
-- [docs/specs/2026-04-11-memfold-architecture-design.zh-CN.md](./docs/specs/2026-04-11-memfold-architecture-design.zh-CN.md)
+- [docs/specs/architecture.zh-CN.md](./docs/specs/architecture.zh-CN.md)
 - [docs/progress/memfold-v1/00-master-checklist.zh-CN.md](./docs/progress/memfold-v1/00-master-checklist.zh-CN.md)

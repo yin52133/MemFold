@@ -174,7 +174,7 @@ always answer english\n",
         &config
             .root
             .join("memory")
-            .join("projects")
+            .join("repos")
             .join("memfold")
             .join("stable")
             .join("project-card.md"),

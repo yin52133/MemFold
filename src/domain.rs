@@ -173,7 +173,7 @@ impl ScopeRef {
     pub fn scope_dir_fragment(&self) -> String {
         match self.scope_type {
             ScopeType::User => "user".to_string(),
-            ScopeType::Project => format!("projects/{}", self.scope_id),
+            ScopeType::Project => format!("repos/{}", self.scope_id),
         }
     }
 }

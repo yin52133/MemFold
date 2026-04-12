@@ -123,7 +123,7 @@ fn is_duplicate(config: &MemfoldConfig, input: &HookCaptureInput, normalized_sum
     let existing = conn
         .query_row(
             "SELECT summary
-             FROM evidence_items
+             FROM session_log_entries
              WHERE session_id = ?1 AND scope_type = ?2 AND scope_id = ?3 AND source_kind = ?4
              ORDER BY created_at DESC LIMIT 1",
             params![

@@ -43,19 +43,19 @@ struct QmdConfig {
 
 pub fn sync_scope(config: &MemfoldConfig, scope: &ScopeRef) -> Result<usize> {
     let stable_records = build_stable_records(config, scope)?;
-    let evidence_records = build_evidence_records(config, scope)?;
-    let archive_records = build_archive_records(config, scope)?;
+    let session_log_records = build_evidence_records(config, scope)?;
+    let history_records = build_archive_records(config, scope)?;
 
     let mut embedder = load_embedder(config)?;
     let stable_records = embed_records(stable_records, embedder.as_mut());
-    let evidence_records = embed_records(evidence_records, embedder.as_mut());
-    let archive_records = embed_records(archive_records, embedder.as_mut());
+    let session_log_records = embed_records(session_log_records, embedder.as_mut());
+    let history_records = embed_records(history_records, embedder.as_mut());
 
     write_collection(config, scope, "stable", &stable_records)?;
-    write_collection(config, scope, "evidence", &evidence_records)?;
-    write_collection(config, scope, "archive", &archive_records)?;
+    write_collection(config, scope, "session_log", &session_log_records)?;
+    write_collection(config, scope, "history", &history_records)?;
 
-    Ok(stable_records.len() + evidence_records.len() + archive_records.len())
+    Ok(stable_records.len() + session_log_records.len() + history_records.len())
 }
 
 pub fn init_model(config: &MemfoldConfig, model: &str) -> Result<QmdModelInitResult> {
@@ -104,7 +104,7 @@ pub fn embed_query(config: &MemfoldConfig, text: &str) -> Result<Option<Vec<f32>
 
 pub fn load_scope_records(config: &MemfoldConfig, scope: &ScopeRef) -> Result<Vec<QmdRecord>> {
     let mut records = Vec::new();
-    for source in ["stable", "evidence", "archive"] {
+    for source in ["stable", "session_log", "history"] {
         let path = collection_file_path(config, scope, source);
         if !path.exists() {
             continue;
@@ -201,7 +201,7 @@ fn build_evidence_records(config: &MemfoldConfig, scope: &ScopeRef) -> Result<Ve
     session_dirs.sort();
 
     for session_dir in session_dirs {
-        let file = session_dir.join("evidence.jsonl");
+        let file = session_dir.join("session_log.jsonl");
         if !file.exists() {
             continue;
         }
@@ -220,7 +220,7 @@ fn build_evidence_records(config: &MemfoldConfig, scope: &ScopeRef) -> Result<Ve
             };
             records.push(QmdRecord {
                 doc_id: value["evidence_id"].as_str().unwrap_or("").to_string(),
-                source_type: "evidence".to_string(),
+                source_type: "session_log".to_string(),
                 relative_path: relative_path.clone(),
                 pointer: format!("{relative_path}#{}", idx + 1),
                 summary: value["summary"].as_str().unwrap_or("").to_string(),
@@ -239,7 +239,8 @@ fn build_evidence_records(config: &MemfoldConfig, scope: &ScopeRef) -> Result<Ve
 fn build_archive_records(config: &MemfoldConfig, scope: &ScopeRef) -> Result<Vec<QmdRecord>> {
     let archive_dir = config
         .project_root(scope)
-        .join("archive");
+        .join("history")
+        .join("daily");
     let mut records = Vec::new();
 
     if !archive_dir.exists() {
@@ -260,11 +261,11 @@ fn build_archive_records(config: &MemfoldConfig, scope: &ScopeRef) -> Result<Vec
         for (idx, entry) in parse_archive_entries(&file)?.into_iter().enumerate() {
             records.push(QmdRecord {
                 doc_id: format!("archive:{}:{}", scope.scope_key(), idx + 1),
-                source_type: "archive".to_string(),
+                source_type: "history".to_string(),
                 relative_path: relative_path.clone(),
                 pointer: format!("{relative_path}#entry-{}", idx + 1),
                 summary: entry.summary,
-                status: "archived".to_string(),
+                status: "history".to_string(),
                 scope_type: scope.scope_type.as_str().to_string(),
                 scope_id: scope.scope_id.clone(),
                 updated_at: entry.updated_at,

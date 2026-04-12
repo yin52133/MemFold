@@ -41,7 +41,7 @@ fn write_evidence_persists_jsonl_archive_and_sqlite_projections() {
     let evidence_row = conn
         .query_row(
             "SELECT session_id, scope_type, scope_id, source_kind, summary, jsonl_path, line_no, promotable, origin_mode, claim_fingerprint, created_at
-             FROM evidence_items
+             FROM session_log_entries
              WHERE id = ?1",
             params![result.evidence_id.clone()],
             |row| {
@@ -83,7 +83,7 @@ fn write_evidence_persists_jsonl_archive_and_sqlite_projections() {
     assert_eq!(summary, "用户明确要求默认用中文回答");
     assert_eq!(
         jsonl_path,
-        "memory/projects/memfold/sessions/sess_001/evidence.jsonl"
+        "memory/repos/memfold/sessions/sess_001/session_log.jsonl"
     );
     assert_eq!(line_no, 1);
     assert_eq!(promotable, 1);
@@ -149,7 +149,7 @@ fn write_evidence_persists_jsonl_archive_and_sqlite_projections() {
     assert_eq!(trace_scope_type, "project");
     assert_eq!(trace_scope_id, "memfold");
     assert_eq!(archive_kind, "daily_log");
-    assert!(file_path.starts_with("memory/projects/memfold/archive/memory-"));
+    assert!(file_path.starts_with("memory/repos/memfold/history/daily/"));
     assert!(archive_date.len() >= 10);
     assert!(line_no.is_none());
     assert!(content_hash.starts_with("sha256:"));
@@ -157,11 +157,11 @@ fn write_evidence_persists_jsonl_archive_and_sqlite_projections() {
 
     let jsonl_path = root
         .join("memory")
-        .join("projects")
+        .join("repos")
         .join("memfold")
         .join("sessions")
         .join("sess_001")
-        .join("evidence.jsonl");
+        .join("session_log.jsonl");
     let jsonl_text = fs::read_to_string(&jsonl_path).unwrap();
     let jsonl_value: Value = serde_json::from_str(jsonl_text.lines().next().unwrap()).unwrap();
     assert_eq!(jsonl_value["evidence_id"], result.evidence_id);
@@ -178,7 +178,7 @@ fn write_evidence_persists_jsonl_archive_and_sqlite_projections() {
     assert!(archive_text.contains("用户明确要求默认用中文回答"));
     assert!(archive_text.contains("source_kind: user"));
     assert!(archive_text.contains("session: sess_001"));
-    assert!(archive_text.contains("jsonl_path: memory/projects/memfold/sessions/sess_001/evidence.jsonl"));
+    assert!(archive_text.contains("jsonl_path: memory/repos/memfold/sessions/sess_001/session_log.jsonl"));
     assert!(archive_text.contains("promotable: true"));
 }
 

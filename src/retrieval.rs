@@ -114,14 +114,14 @@ fn source_priority(source_type: &str, intent: Intent) -> u8 {
     match intent {
         Intent::Continue => match source_type {
             "stable" => 0,
-            "evidence" => 1,
-            "archive" => 2,
+            "history" => 1,
+            "session_log" => 2,
             _ => 3,
         },
         Intent::KnowledgeLookup => match source_type {
             "stable" => 0,
-            "archive" => 1,
-            "evidence" => 2,
+            "history" => 1,
+            "session_log" => 2,
             _ => 3,
         },
         _ => 0,

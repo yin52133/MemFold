@@ -97,7 +97,7 @@ fn hook_capture_records_meaningful_event_once() {
     let conn = Connection::open(root.join("state").join("memfold.db")).unwrap();
     let count: i64 = conn
         .query_row(
-            "SELECT COUNT(*) FROM evidence_items WHERE session_id = ?1 AND summary = ?2",
+            "SELECT COUNT(*) FROM session_log_entries WHERE session_id = ?1 AND summary = ?2",
             params!["sess_hook", "完成 Wave 2 CLI 接线"],
             |row| row.get(0),
         )

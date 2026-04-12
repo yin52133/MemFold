@@ -50,7 +50,7 @@ pub fn apply_feedback(
     let evidence_targets = {
         let mut stmt = conn.prepare(
             "SELECT id
-             FROM evidence_items
+             FROM session_log_entries
              WHERE scope_type = ?1 AND scope_id = ?2 AND claim_fingerprint = ?3",
         )?;
         let rows = stmt.query_map(

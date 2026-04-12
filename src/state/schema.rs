@@ -1,4 +1,4 @@
-use rusqlite::Connection;
+use rusqlite::{Connection, OptionalExtension};
 
 const SCHEMA_SQL: &str = r#"
 CREATE TABLE IF NOT EXISTS memory_items (
@@ -21,7 +21,7 @@ CREATE TABLE IF NOT EXISTS memory_items (
     deleted_at TEXT
 );
 
-CREATE TABLE IF NOT EXISTS evidence_items (
+CREATE TABLE IF NOT EXISTS session_log_entries (
     id TEXT PRIMARY KEY,
     session_id TEXT NOT NULL,
     scope_type TEXT NOT NULL,
@@ -144,14 +144,14 @@ CREATE INDEX IF NOT EXISTS idx_memory_claim_fingerprint
 CREATE INDEX IF NOT EXISTS idx_memory_autoload
     ON memory_items (autoload, status);
 
-CREATE INDEX IF NOT EXISTS idx_evidence_session_created
-    ON evidence_items (session_id, created_at);
+CREATE INDEX IF NOT EXISTS idx_session_log_session_created
+    ON session_log_entries (session_id, created_at);
 
-CREATE INDEX IF NOT EXISTS idx_evidence_claim_fingerprint
-    ON evidence_items (claim_fingerprint);
+CREATE INDEX IF NOT EXISTS idx_session_log_claim_fingerprint
+    ON session_log_entries (claim_fingerprint);
 
-CREATE INDEX IF NOT EXISTS idx_evidence_promotable
-    ON evidence_items (promotable, origin_mode);
+CREATE INDEX IF NOT EXISTS idx_session_log_promotable
+    ON session_log_entries (promotable, origin_mode);
 
 CREATE INDEX IF NOT EXISTS idx_trace_scope_date
     ON trace_archives (scope_type, scope_id, archive_date);
@@ -170,5 +170,73 @@ CREATE INDEX IF NOT EXISTS idx_tombstones_claim_fingerprint
 "#;
 
 pub fn apply_schema(conn: &Connection) -> rusqlite::Result<()> {
-    conn.execute_batch(SCHEMA_SQL)
+    conn.execute_batch(SCHEMA_SQL)?;
+    migrate_legacy_evidence_items(conn)?;
+    conn.execute_batch(
+        r#"
+CREATE VIEW IF NOT EXISTS evidence_items AS
+SELECT
+    id,
+    session_id,
+    scope_type,
+    scope_id,
+    source_kind,
+    summary,
+    jsonl_path,
+    line_no,
+    promotable,
+    origin_mode,
+    claim_fingerprint,
+    created_at
+FROM session_log_entries;
+"#,
+    )
+}
+
+fn migrate_legacy_evidence_items(conn: &Connection) -> rusqlite::Result<()> {
+    let legacy_object_type: Option<String> = conn
+        .query_row(
+            "SELECT type FROM sqlite_master WHERE name = 'evidence_items' LIMIT 1",
+            [],
+            |row| row.get(0),
+        )
+        .optional()?;
+
+    if legacy_object_type.as_deref() != Some("table") {
+        return Ok(());
+    }
+
+    conn.execute_batch(
+        r#"
+INSERT OR IGNORE INTO session_log_entries (
+    id,
+    session_id,
+    scope_type,
+    scope_id,
+    source_kind,
+    summary,
+    jsonl_path,
+    line_no,
+    promotable,
+    origin_mode,
+    claim_fingerprint,
+    created_at
+)
+SELECT
+    id,
+    session_id,
+    scope_type,
+    scope_id,
+    source_kind,
+    summary,
+    jsonl_path,
+    line_no,
+    promotable,
+    origin_mode,
+    claim_fingerprint,
+    created_at
+FROM evidence_items;
+DROP TABLE evidence_items;
+"#,
+    )
 }

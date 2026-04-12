@@ -43,10 +43,10 @@ pub fn run_repair(config: &MemfoldConfig, scope: Option<&ScopeRef>) -> Result<Re
 
 fn discover_scopes(config: &MemfoldConfig) -> Result<Vec<ScopeRef>> {
     let mut scopes = vec![ScopeRef::new(ScopeType::User, "default")?];
-    let projects_dir = config.root.join("memory").join("projects");
-    if projects_dir.exists() {
+    let repos_dir = config.root.join("memory").join("repos");
+    if repos_dir.exists() {
         let mut entries = Vec::new();
-        for entry in fs::read_dir(projects_dir)? {
+        for entry in fs::read_dir(repos_dir)? {
             entries.push(entry?.file_name().to_string_lossy().to_string());
         }
         entries.sort();
@@ -58,7 +58,7 @@ fn discover_scopes(config: &MemfoldConfig) -> Result<Vec<ScopeRef>> {
 }
 
 fn clear_scope_projections(conn: &Connection, scope: &ScopeRef) -> Result<()> {
-    for table in ["memory_items", "evidence_items", "trace_archives", "boot_entries"] {
+    for table in ["memory_items", "session_log_entries", "trace_archives", "boot_entries"] {
         let sql = format!("DELETE FROM {table} WHERE scope_type = ?1 AND scope_id = ?2");
         conn.execute(&sql, params![scope.scope_type.as_str(), &scope.scope_id])?;
     }
@@ -135,7 +135,7 @@ fn rebuild_evidence_items(config: &MemfoldConfig, conn: &Connection, scope: &Sco
 
     for session_dir in session_dirs {
         let session_id = session_dir.file_name().unwrap().to_string_lossy().to_string();
-        let evidence_path = session_dir.join("evidence.jsonl");
+        let evidence_path = session_dir.join("session_log.jsonl");
         if !evidence_path.exists() {
             continue;
         }
@@ -152,7 +152,7 @@ fn rebuild_evidence_items(config: &MemfoldConfig, conn: &Connection, scope: &Sco
             }
             let value: serde_json::Value = serde_json::from_str(line)?;
             conn.execute(
-                "INSERT INTO evidence_items (
+                "INSERT INTO session_log_entries (
                     id, session_id, scope_type, scope_id, source_kind, summary, jsonl_path, line_no,
                     promotable, origin_mode, claim_fingerprint, created_at
                 ) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12)",
@@ -192,14 +192,14 @@ fn rebuild_evidence_items(config: &MemfoldConfig, conn: &Connection, scope: &Sco
 }
 
 fn rebuild_trace_archives(config: &MemfoldConfig, conn: &Connection, scope: &ScopeRef) -> Result<usize> {
-    let archive_dir = config.project_root(scope).join("archive");
-    if !archive_dir.exists() {
+    let history_dir = config.project_root(scope).join("history").join("daily");
+    if !history_dir.exists() {
         return Ok(0);
     }
 
     let mut count = 0usize;
     let mut files = Vec::new();
-    for entry in fs::read_dir(&archive_dir)? {
+    for entry in fs::read_dir(&history_dir)? {
         let path = entry?.path();
         if path.extension().and_then(|ext| ext.to_str()) == Some("md") {
             files.push(path);
@@ -216,8 +216,7 @@ fn rebuild_trace_archives(config: &MemfoldConfig, conn: &Connection, scope: &Sco
         let archive_date = file
             .file_stem()
             .and_then(|stem| stem.to_str())
-            .unwrap_or("memory-unknown")
-            .trim_start_matches("memory-")
+            .unwrap_or("unknown")
             .to_string();
 
         for entry in parse_archive_entries(&file)? {

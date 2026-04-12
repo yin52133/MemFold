@@ -20,17 +20,17 @@ fn memory_fs_appends_jsonl_and_writes_markdown_atomically() {
     assert!(
         tmp.path()
             .join("memory")
-            .join("projects")
+            .join("repos")
             .join("memfold")
             .join("sessions")
             .join("sess_1")
-            .join("evidence.jsonl")
+            .join("session_log.jsonl")
             .exists()
     );
     assert!(
         tmp.path()
             .join("memory")
-            .join("projects")
+            .join("repos")
             .join("memfold")
             .join("boot")
             .join("bundle.md")

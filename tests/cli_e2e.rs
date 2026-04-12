@@ -172,4 +172,13 @@ fn cli_core_flow_runs_through_search_feedback_dream_and_repair() {
     assert!(repair.status.success(), "{repair:?}");
     let repair_json: Value = serde_json::from_slice(&repair.stdout).unwrap();
     assert_eq!(repair_json["repaired"], true);
+
+    let session_log = root
+        .join("memory")
+        .join("repos")
+        .join("memfold")
+        .join("sessions")
+        .join("sess_e2e")
+        .join("session_log.jsonl");
+    assert!(session_log.exists());
 }

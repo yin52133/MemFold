@@ -32,7 +32,7 @@ fn qmd_init_model_writes_config_and_sync_adds_embeddings() {
     assert!(initialized.enabled);
     assert_eq!(initialized.model, "mock-test");
 
-    let stable_dir = root.join("memory").join("projects").join("memfold").join("stable");
+    let stable_dir = root.join("memory").join("repos").join("memfold").join("stable");
     write_stable_file(
         &stable_dir.join("rules.md"),
         "## item_key: project.rule.embed\n\
@@ -52,7 +52,7 @@ embedding aware memory search\n",
             claim_fingerprint, content_hash, revision, supersedes_id, trust_score,
             freshness_score, created_at, updated_at, deleted_at
         ) VALUES (
-            'mem_embed', 'project', 'memfold', 'project.rule.embed', 'memory/projects/memfold/stable/rules.md',
+            'mem_embed', 'project', 'memfold', 'project.rule.embed', 'memory/repos/memfold/stable/rules.md',
             'Embed rule', 'stable', 'boot_project', 'cfp_embed', 'sha256:embed', 1, NULL, 1.0, 1.0,
             '2026-04-12T00:00:00Z', '2026-04-12T00:00:00Z', NULL
         )",
