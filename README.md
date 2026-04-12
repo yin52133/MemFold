@@ -247,6 +247,6 @@ Current coverage includes:
 - [Codex Integration Docs](./docs/integrations/codex/README.en.md)
 - [Codex QMD Guide](./docs/integrations/codex/qmd.en.md)
 - [Hooks Overview](./hooks/README.en.md)
-- [Skills Overview](./skills/README.en.md)
+- [Skills Overview](./plugins/README.en.md)
 - [Architecture Spec (zh-CN)](./docs/specs/2026-04-11-memfold-architecture-design.zh-CN.md)
 - [Progress Board (zh-CN)](./docs/progress/memfold-v1/00-master-checklist.zh-CN.md)

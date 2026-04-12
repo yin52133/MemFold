@@ -29,7 +29,7 @@ cdx-memfold
 
 - `~/.codex/memfold/bin/memfold`
 - `~/.codex/memfold/hooks/*` linked to `hooks/codex-global/*`
-- `~/.codex/skills/memfold-codex-memory` linked to `skills/memfold-codex-memory`
+- `~/plugins/memfold` linked to the repo plugin source, with runtime skills provided from plugin-internal `skills/`
 
 ## Validation
 
@@ -43,5 +43,5 @@ cdx-memfold
 ```bash
 rm -rf ~/.codex/memfold
 rm -f ~/.local/bin/memfold
-rm -f ~/.codex/skills/memfold-codex-memory
+rm -rf ~/plugins/memfold
 ```

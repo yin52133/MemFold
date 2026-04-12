@@ -29,7 +29,7 @@ cdx-memfold
 
 - `~/.codex/memfold/bin/memfold`
 - `~/.codex/memfold/hooks/*` 指向仓库内 `hooks/codex-global/*`
-- `~/.codex/skills/memfold-codex-memory` 指向仓库内 `skills/memfold-codex-memory`
+- `~/plugins/memfold` 指向仓库内 `plugins/memfold`，运行态 skill 来自 plugin 内部 `skills/`
 
 ## 验证
 
@@ -43,5 +43,5 @@ cdx-memfold
 ```bash
 rm -rf ~/.codex/memfold
 rm -f ~/.local/bin/memfold
-rm -f ~/.codex/skills/memfold-codex-memory
+rm -rf ~/plugins/memfold
 ```

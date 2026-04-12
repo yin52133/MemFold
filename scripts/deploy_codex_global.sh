@@ -6,7 +6,6 @@ CODEX_HOME="${HOME}/.codex"
 MEMFOLD_HOME="${CODEX_HOME}/memfold"
 MEMFOLD_BIN_DIR="${MEMFOLD_HOME}/bin"
 MEMFOLD_HOOK_DIR="${MEMFOLD_HOME}/hooks"
-SKILL_DIR="${CODEX_HOME}/skills/memfold-codex-memory"
 HOME_PLUGIN_DIR="${HOME}/plugins/memfold"
 HOME_MARKETPLACE="${HOME}/.agents/plugins/marketplace.json"
 
@@ -20,7 +19,6 @@ mkdir -p \
   "${MEMFOLD_HOME}/memory" \
   "${MEMFOLD_HOME}/qmd" \
   "${MEMFOLD_HOME}/runtime" \
-  "${CODEX_HOME}/skills" \
   "${HOME}/plugins" \
   "$(dirname "${HOME_MARKETPLACE}")"
 
@@ -46,14 +44,8 @@ cp "${REPO_ROOT}/docs/integrations/codex/deployment.en.md" "${MEMFOLD_HOME}/docs
 cp "${REPO_ROOT}/docs/integrations/codex/README.zh-CN.md" "${MEMFOLD_HOME}/docs/README.codex.zh-CN.md"
 cp "${REPO_ROOT}/docs/integrations/codex/README.en.md" "${MEMFOLD_HOME}/docs/README.codex.en.md"
 cp "${REPO_ROOT}/docs/integrations/codex/AGENTS.example.md" "${MEMFOLD_HOME}/docs/AGENTS.example.md"
-rm -rf "${SKILL_DIR}"
-ln -sfn "${REPO_ROOT}/plugins/memfold/skills/memfold-codex-memory" "${SKILL_DIR}"
-rm -rf "${CODEX_HOME}/skills/memfold-dream" "${CODEX_HOME}/skills/memfold-qmd" "${CODEX_HOME}/skills/memfold-search" "${CODEX_HOME}/skills/memfold-remember" "${CODEX_HOME}/skills/memfold-forget"
+rm -rf "${CODEX_HOME}/skills/memfold-codex-memory" "${CODEX_HOME}/skills/memfold-dream" "${CODEX_HOME}/skills/memfold-qmd" "${CODEX_HOME}/skills/memfold-search" "${CODEX_HOME}/skills/memfold-remember" "${CODEX_HOME}/skills/memfold-forget"
 ln -sfn "${REPO_ROOT}/plugins/memfold" "${HOME_PLUGIN_DIR}"
-for skill in memfold-dream memfold-qmd memfold-search memfold-remember memfold-forget; do
-  rm -rf "${CODEX_HOME}/skills/${skill}"
-  ln -sfn "${REPO_ROOT}/skills/${skill}" "${CODEX_HOME}/skills/${skill}"
-done
 cp "${REPO_ROOT}/README.md" "${MEMFOLD_HOME}/README.repo.zh-CN.md"
 cp "${REPO_ROOT}/README.en.md" "${MEMFOLD_HOME}/README.repo.en.md"
 cp "${REPO_ROOT}/hooks/local/README.zh-CN.md" "${MEMFOLD_HOME}/docs/hooks.local.zh-CN.md"

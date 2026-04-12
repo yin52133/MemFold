@@ -12,11 +12,11 @@ These docs explain how to integrate MemFold into Codex.
 ## Repository Contract
 
 - `hooks/` is the canonical hook source
-- `skills/` is the canonical skill source
+- `plugins/` is the canonical plugin source
 - `scripts/` provides install and verification flows
 
 Other projects should integrate by:
 
-1. referencing this repo’s `hooks/` and `skills/`
+1. referencing this repo’s `hooks/` and `plugins/`
 2. running the deployment script
 3. validating with the verification script

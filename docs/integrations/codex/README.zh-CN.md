@@ -12,11 +12,11 @@
 ## 结构约定
 
 - `hooks/` 是 canonical hook source
-- `skills/` 是 canonical skill source
+- `plugins/` 是 canonical plugin source
 - `scripts/` 提供安装和验证脚本
 
 这样其他项目在接入时，只需要：
 
-1. 引用本仓库的 `hooks/` 和 `skills/`
+1. 引用本仓库的 `hooks/` 和 `plugins/`
 2. 运行部署脚本
 3. 按验证脚本确认 Codex 能直接调用 MemFold
