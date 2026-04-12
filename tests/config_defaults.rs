@@ -1,5 +1,6 @@
 use memfold::config::MemfoldConfig;
 use memfold::domain::{Intent, Mode, ScopeRef, ScopeType};
+use std::fs;
 use tempfile::TempDir;
 
 #[test]
@@ -39,4 +40,24 @@ fn default_config_resolves_expected_paths_and_parent_dirs() {
 
     MemfoldConfig::ensure_parent_dir(&nested).unwrap();
     assert!(tmp.path().join("state").join("nested").exists());
+}
+
+#[test]
+fn project_root_migrates_legacy_projects_directory() {
+    let tmp = TempDir::new().unwrap();
+    let config = MemfoldConfig::default_for_root(tmp.path().to_path_buf());
+    let scope = ScopeRef::new(ScopeType::Project, "memfold").unwrap();
+    let legacy = tmp
+        .path()
+        .join("memory")
+        .join("projects")
+        .join("memfold");
+    fs::create_dir_all(&legacy).unwrap();
+    fs::write(legacy.join("sentinel.txt"), "legacy").unwrap();
+
+    let resolved = config.project_root(&scope);
+
+    assert_eq!(resolved, tmp.path().join("memory").join("repos").join("memfold"));
+    assert!(resolved.join("sentinel.txt").exists());
+    assert!(!legacy.exists());
 }

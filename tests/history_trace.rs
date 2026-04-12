@@ -5,6 +5,7 @@ use memfold::domain::{Mode, ScopeRef, ScopeType, SourceKind};
 use memfold::evidence::{WriteEvidenceInput, write_evidence};
 use memfold::history::{SummarizeHistoryInput, summarize_history};
 use memfold::init::initialize_root;
+use memfold::repair::run_repair;
 use memfold::trace::{TraceQuery, trace_find};
 use tempfile::TempDir;
 
@@ -102,4 +103,44 @@ fn trace_find_returns_raw_user_text() {
         Some("以后不要奉承我，要判断我说得对不对。")
     );
     assert_eq!(trace.summary, "用户要求实事求是");
+}
+
+#[test]
+fn trace_find_still_works_after_repair_for_raw_text_only_match() {
+    let tmp = TempDir::new().unwrap();
+    let root = memfold_root(&tmp);
+    let config = MemfoldConfig::default_for_root(root);
+    initialize_root(&config).unwrap();
+    let scope = ScopeRef::new(ScopeType::Project, "memfold").unwrap();
+
+    write_evidence(
+        &config,
+        &WriteEvidenceInput {
+            scope: scope.clone(),
+            session_id: "sess_trace_repair".to_string(),
+            source_kind: SourceKind::User,
+            summary: "用户要求直接指出错误".to_string(),
+            raw_text: Some("以后别奉承我，直接指出我的前提哪里错了。".to_string()),
+            promotable: true,
+            origin_mode: Mode::Normal,
+            claim_fingerprint: Some("cfp_trace_repair".to_string()),
+        },
+    )
+    .unwrap();
+
+    run_repair(&config, Some(&scope)).unwrap();
+
+    let trace = trace_find(
+        &config,
+        &TraceQuery {
+            scope: Some(scope),
+            query: "奉承".to_string(),
+        },
+    )
+    .unwrap();
+
+    assert_eq!(
+        trace.raw_text.as_deref(),
+        Some("以后别奉承我，直接指出我的前提哪里错了。")
+    );
 }

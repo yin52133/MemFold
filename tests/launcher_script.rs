@@ -8,6 +8,7 @@ fn launcher_script_contains_session_start_and_exit_cleanup() {
     assert!(script.contains("hooks/session_start.sh"));
     assert!(script.contains("trap cleanup EXIT INT TERM"));
     assert!(script.contains("hooks/session_end.sh"));
+    assert!(!script.contains("repo_${owner}_${repo}"));
 }
 
 #[test]

@@ -25,21 +25,8 @@ SOURCE_KIND="${MEMFOLD_SOURCE_KIND:-decision}"
 MEMFOLD_ROOT="${MEMFOLD_ROOT:-${MEMFOLD_HOME}}"
 
 derive_scope_id() {
-  local git_root remote normalized owner repo
+  local git_root
   git_root="$(git -C "${WORKDIR}" rev-parse --show-toplevel 2>/dev/null || true)"
-  remote="$(git -C "${WORKDIR}" config --get remote.origin.url 2>/dev/null || true)"
-
-  if [[ -n "${remote}" ]]; then
-    normalized="${remote%.git}"
-    repo="$(basename "${normalized}")"
-    owner="$(printf '%s' "${normalized}" | sed -E 's#.*[:/]([^/:]+)/[^/:]+$#\1#')"
-    owner="${owner//[^[:alnum:]]/_}"
-    repo="${repo//[^[:alnum:]]/_}"
-    if [[ -n "${owner}" && -n "${repo}" ]]; then
-      printf '%s\n' "repo_${owner}_${repo}"
-      return
-    fi
-  fi
 
   if [[ -n "${git_root}" ]]; then
     basename "${git_root}"

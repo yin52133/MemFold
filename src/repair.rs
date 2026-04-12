@@ -153,9 +153,9 @@ fn rebuild_evidence_items(config: &MemfoldConfig, conn: &Connection, scope: &Sco
             let value: serde_json::Value = serde_json::from_str(line)?;
             conn.execute(
                 "INSERT INTO session_log_entries (
-                    id, session_id, scope_type, scope_id, source_kind, summary, jsonl_path, line_no,
+                    id, session_id, scope_type, scope_id, source_kind, summary, raw_text, jsonl_path, line_no,
                     promotable, origin_mode, claim_fingerprint, created_at
-                ) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12)",
+                ) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13)",
                 params![
                     value["evidence_id"].as_str().unwrap_or_default(),
                     &session_id,
@@ -163,6 +163,7 @@ fn rebuild_evidence_items(config: &MemfoldConfig, conn: &Connection, scope: &Sco
                     &scope.scope_id,
                     value["source_kind"].as_str().unwrap_or_default(),
                     value["summary"].as_str().unwrap_or_default(),
+                    value["raw_text"].as_str(),
                     &relative_path,
                     (idx + 1) as i64,
                     if value["promotable"].as_bool().unwrap_or(false) { 1 } else { 0 },

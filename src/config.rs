@@ -23,7 +23,18 @@ impl MemfoldConfig {
     pub fn project_root(&self, scope: &ScopeRef) -> PathBuf {
         match scope.scope_type {
             ScopeType::User => self.root.join("memory").join("user"),
-            ScopeType::Project => self.root.join("memory").join("repos").join(&scope.scope_id),
+            ScopeType::Project => {
+                let repos_root = self.root.join("memory").join("repos");
+                let canonical = repos_root.join(&scope.scope_id);
+                let legacy = self.root.join("memory").join("projects").join(&scope.scope_id);
+
+                if !canonical.exists() && legacy.exists() {
+                    let _ = std::fs::create_dir_all(&repos_root);
+                    let _ = std::fs::rename(&legacy, &canonical);
+                }
+
+                canonical
+            }
         }
     }
 
