@@ -31,12 +31,7 @@ pub fn summarize_history(
     config: &MemfoldConfig,
     input: &SummarizeHistoryInput,
 ) -> Result<SummarizeHistoryResult> {
-    let session_log_path = session_evidence_path(config, &input.scope, &input.session_id);
-    if !session_log_path.exists() {
-        return Err(Error::SessionMissing(input.session_id.clone()));
-    }
-
-    let entries = read_session_log(&session_log_path)?;
+    let entries = read_session_entries(config, input)?;
     if entries.is_empty() {
         return Err(Error::HistorySummaryFailed("session log is empty".to_string()));
     }
@@ -103,6 +98,46 @@ fn read_session_log(path: &std::path::Path) -> Result<Vec<SessionLogEntry>> {
             summary: value["summary"].as_str().unwrap_or("").to_string(),
             created_at: value["created_at"].as_str().unwrap_or_default().to_string(),
         });
+    }
+    Ok(entries)
+}
+
+fn read_session_entries(
+    config: &MemfoldConfig,
+    input: &SummarizeHistoryInput,
+) -> Result<Vec<SessionLogEntry>> {
+    let direct_path = session_evidence_path(config, &input.scope, &input.session_id);
+    if direct_path.exists() {
+        let entries = read_session_log(&direct_path)?;
+        if !entries.is_empty() {
+            return Ok(entries);
+        }
+    }
+
+    let conn = open_connection(config)?;
+    let mut stmt = conn.prepare(
+        "SELECT source_kind, summary, created_at
+         FROM session_log_entries
+         WHERE session_id = ?1 AND scope_type = ?2 AND scope_id = ?3
+         ORDER BY line_no",
+    )?;
+    let rows = stmt.query_map(
+        params![
+            &input.session_id,
+            input.scope.scope_type.as_str(),
+            &input.scope.scope_id
+        ],
+        |row| {
+            Ok(SessionLogEntry {
+                source_kind: row.get::<_, String>(0)?,
+                summary: row.get::<_, String>(1)?,
+                created_at: row.get::<_, String>(2)?,
+            })
+        },
+    )?;
+    let entries = rows.collect::<rusqlite::Result<Vec<_>>>()?;
+    if entries.is_empty() {
+        return Err(Error::SessionMissing(input.session_id.clone()));
     }
     Ok(entries)
 }
