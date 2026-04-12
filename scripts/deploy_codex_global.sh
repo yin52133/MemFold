@@ -8,6 +8,40 @@ MEMFOLD_BIN_DIR="${MEMFOLD_HOME}/bin"
 MEMFOLD_HOOK_DIR="${MEMFOLD_HOME}/hooks"
 HOME_PLUGIN_DIR="${HOME}/plugins/memfold"
 HOME_MARKETPLACE="${HOME}/.agents/plugins/marketplace.json"
+PLUGIN_CACHE_DIR="${HOME}/.codex/plugins/cache/home-local/memfold"
+PLUGIN_CACHE_STAMP="${CODEX_HOME}/.tmp/plugins.sha"
+VERIFY_SCRIPT="${REPO_ROOT}/scripts/verify_codex_global.sh"
+CURRENT_SCOPE_ID="$(basename "${REPO_ROOT}")"
+VERIFY_REPAIR_NEEDED=42
+
+clear_plugin_cache() {
+  rm -rf "${PLUGIN_CACHE_DIR}"
+  rm -f "${PLUGIN_CACHE_STAMP}"
+}
+
+sync_scope() {
+  local scope_type="$1"
+  local scope_id="$2"
+
+  "${MEMFOLD_BIN_DIR}/memfold" --root "${MEMFOLD_HOME}" qmd sync \
+    --scope-type "${scope_type}" \
+    --scope-id "${scope_id}" >/dev/null
+}
+
+sync_known_scopes() {
+  sync_scope user default
+  sync_scope project "${CURRENT_SCOPE_ID}"
+
+  local repos_dir="${MEMFOLD_HOME}/memory/repos"
+  if [[ ! -d "${repos_dir}" ]]; then
+    return 0
+  fi
+
+  while IFS= read -r repo_name; do
+    [[ -n "${repo_name}" ]] || continue
+    sync_scope project "${repo_name}"
+  done < <(find "${repos_dir}" -mindepth 1 -maxdepth 1 -type d -printf '%f\n' | sort)
+}
 
 mkdir -p \
   "${MEMFOLD_BIN_DIR}" \
@@ -46,6 +80,7 @@ cp "${REPO_ROOT}/docs/integrations/codex/README.en.md" "${MEMFOLD_HOME}/docs/REA
 cp "${REPO_ROOT}/docs/integrations/codex/AGENTS.example.md" "${MEMFOLD_HOME}/docs/AGENTS.example.md"
 rm -rf "${CODEX_HOME}/skills/memfold-codex-memory" "${CODEX_HOME}/skills/memfold-dream" "${CODEX_HOME}/skills/memfold-qmd" "${CODEX_HOME}/skills/memfold-search" "${CODEX_HOME}/skills/memfold-remember" "${CODEX_HOME}/skills/memfold-forget"
 ln -sfn "${REPO_ROOT}/plugins/memfold" "${HOME_PLUGIN_DIR}"
+clear_plugin_cache
 cp "${REPO_ROOT}/README.md" "${MEMFOLD_HOME}/README.repo.zh-CN.md"
 cp "${REPO_ROOT}/README.en.md" "${MEMFOLD_HOME}/README.repo.en.md"
 cp "${REPO_ROOT}/hooks/local/README.zh-CN.md" "${MEMFOLD_HOME}/docs/hooks.local.zh-CN.md"
@@ -87,6 +122,26 @@ marketplace.write_text(json.dumps(data, indent=2) + "\n")
 PY
 
 "${MEMFOLD_BIN_DIR}/memfold" --root "${MEMFOLD_HOME}" init >/dev/null
+if ! sync_known_scopes; then
+  echo "[deploy] initial qmd sync failed; continuing to verify for repair gating" >&2
+fi
+
+if "${VERIFY_SCRIPT}"; then
+  echo "MemFold deployed to ${MEMFOLD_HOME}"
+  echo "MemFold plugin linked at ${HOME_PLUGIN_DIR}"
+  exit 0
+else
+  verify_status=$?
+fi
+
+if [[ "${verify_status}" -ne "${VERIFY_REPAIR_NEEDED}" ]]; then
+  exit "${verify_status}"
+fi
+
+echo "[deploy] verify reported repairable drift; running memfold repair" >&2
+"${MEMFOLD_BIN_DIR}/memfold" --root "${MEMFOLD_HOME}" repair >/dev/null
+sync_known_scopes
+"${VERIFY_SCRIPT}"
 
 echo "MemFold deployed to ${MEMFOLD_HOME}"
 echo "MemFold plugin linked at ${HOME_PLUGIN_DIR}"

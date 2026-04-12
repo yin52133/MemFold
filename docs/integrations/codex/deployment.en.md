@@ -12,10 +12,17 @@ Deploy MemFold globally into:
 
 while keeping deployed hooks and skills synchronized with the Git-managed repo sources.
 
-## One-shot scripts
+## Standard Deployment
 
 ```bash
 ./scripts/deploy_codex_global.sh
+```
+
+This is the standard install / update / redeploy entrypoint.
+
+Standalone health check:
+
+```bash
 ./scripts/verify_codex_global.sh
 ```
 
@@ -30,13 +37,20 @@ cdx-memfold
 - `~/.codex/memfold/bin/memfold`
 - `~/.codex/memfold/hooks/*` linked to `hooks/codex-global/*`
 - `~/plugins/memfold` linked to the repo plugin source, with runtime skills provided from plugin-internal `skills/`
+- plugin cache refreshed so updated plugin commands and skills are picked up on redeploy
 
 ## Validation
 
-- CLI `load`
-- global `turn_end` hook dry-run
-- real `cdx exec` invocation of `memfold`
-- `cdx-memfold` launcher exists and is executable
+- deploy runs verify automatically
+- verify checks launcher `session_start/session_end` smoke behavior
+- verify checks global `turn_end` hook persistence
+- verify checks `qmd sync` plus a real `search` round-trip
+- deploy only falls back to `memfold repair` when verify reports repairable drift
+
+## Notes
+
+- `plugin install` alone is not the full deployment path for the current launcher-based integration
+- the repo ships `turn_end.sh`, but per-turn host attachment still depends on host/plugin integration beyond the launcher
 
 ## Rollback
 

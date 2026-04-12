@@ -12,7 +12,7 @@ QMD 是 sidecar，不是正文真相源。
 
 它负责：
 
-- 给 `stable / evidence / archive` 建索引
+- 给 `stable / session_log / history` 建索引
 - 返回回指正文真相源的 `pointer`
 - 在 embedding 可用时使用向量相似度增强检索
 
@@ -54,8 +54,8 @@ memfold --root ~/.codex/memfold qmd sync --scope-type project --scope-id my-proj
 会同步：
 
 - `stable`
-- `evidence`
-- `archive`
+- `session_log`
+- `history`
 
 ## 6. 检索
 
@@ -70,8 +70,8 @@ memfold --root ~/.codex/memfold search \
 
 检索顺序：
 
-- `continue`: stable > evidence > archive
-- `knowledge_lookup`: stable > archive > evidence
+- `continue`: stable > history > session_log
+- `knowledge_lookup`: stable > history > session_log
 
 embedding 可用时：
 

@@ -12,7 +12,7 @@ QMD is a sidecar, not a content truth source.
 
 It is responsible for:
 
-- indexing `stable / evidence / archive`
+- indexing `stable / session_log / history`
 - returning a `pointer` back to the truth source
 - using vector similarity to enhance retrieval when embeddings are enabled
 
@@ -54,8 +54,8 @@ memfold --root ~/.codex/memfold qmd sync --scope-type project --scope-id my-proj
 It syncs:
 
 - `stable`
-- `evidence`
-- `archive`
+- `session_log`
+- `history`
 
 ## 6. Retrieval
 
@@ -70,8 +70,8 @@ memfold --root ~/.codex/memfold search \
 
 Ordering:
 
-- `continue`: stable > evidence > archive
-- `knowledge_lookup`: stable > archive > evidence
+- `continue`: stable > history > session_log
+- `knowledge_lookup`: stable > history > session_log
 
 When embeddings are enabled:
 

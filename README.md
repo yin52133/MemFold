@@ -96,7 +96,7 @@ QMD is an indexing sidecar, not a content truth source.
 Two levels are supported:
 
 1. base sidecar
-- indexes `stable / evidence / archive`
+- indexes `stable / session_log / history`
 - falls back to lexical retrieval
 
 2. embedding sidecar
@@ -205,14 +205,19 @@ Global target:
 ~/.codex/memfold
 ```
 
-One-shot scripts:
+Standard install / update / redeploy entrypoint:
 
 ```bash
 ./scripts/deploy_codex_global.sh
+```
+
+Standalone health check:
+
+```bash
 ./scripts/verify_codex_global.sh
 ```
 
-Optional launcher:
+Launcher:
 
 ```bash
 cdx-memfold
@@ -220,9 +225,11 @@ cdx-memfold
 
 Behavior:
 
-- runs `session_start` before Codex starts
-- best-effort runs `session_end` on `EXIT / ctrl+c / TERM`
-- in-process `/new` resets still need deeper plugin-level host integration
+- deploy rebuilds the binary, refreshes launcher / hooks / plugin source, clears plugin cache, runs QMD sync, and then runs verify
+- deploy only runs `memfold repair` when verify reports repairable drift
+- `cdx-memfold` runs `session_start` before Codex starts and best-effort runs `session_end` on `EXIT / ctrl+c / TERM`
+- shipped `turn_end.sh` is refreshed by deploy, but current host-side per-turn attachment is still separate from plugin installation
+- plugin installation alone is not the full deployment path
 
 ## Validation
 

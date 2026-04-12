@@ -96,7 +96,7 @@ QMD 是索引侧边车，不是正文真相源。
 当前支持两种层次：
 
 1. 基础 sidecar
-- `stable / evidence / archive` 记录可同步到 `qmd/collections/`
+- `stable / session_log / history` 记录可同步到 `qmd/collections/`
 - 搜索可退回词法匹配
 
 2. embedding sidecar
@@ -202,14 +202,19 @@ tests/                       回归与 E2E
 ~/.codex/memfold
 ```
 
-一键脚本：
+标准安装 / 更新 / 重部署入口：
 
 ```bash
 ./scripts/deploy_codex_global.sh
+```
+
+独立健康检查：
+
+```bash
 ./scripts/verify_codex_global.sh
 ```
 
-可选启动器：
+启动器：
 
 ```bash
 cdx-memfold
@@ -217,9 +222,11 @@ cdx-memfold
 
 说明：
 
-- 启动前跑 `session_start`
-- `EXIT / ctrl+c / TERM` 时 best-effort 跑 `session_end`
-- `/new` 这种 Codex 进程内新会话切换，仍应以后续 plugin 级宿主接入补齐
+- deploy 会重建 binary、刷新 launcher / hooks / plugin source、清理 plugin cache、执行 QMD sync，然后跑 verify
+- deploy 只会在 verify 判断为“可修复漂移”时才自动执行 `memfold repair`
+- `cdx-memfold` 会在启动前跑 `session_start`，并在 `EXIT / ctrl+c / TERM` 时 best-effort 跑 `session_end`
+- 仓库内的 `turn_end.sh` 会随 deploy 刷新，但当前每轮自动挂接仍依赖宿主侧接入，不等同于只做 plugin install
+- 只做 plugin 安装不是完整部署
 
 ## 验证
 
