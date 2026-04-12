@@ -178,6 +178,7 @@ fn write_evidence_persists_jsonl_archive_and_sqlite_projections() {
     assert!(archive_text.contains("用户明确要求默认用中文回答"));
     assert!(archive_text.contains("source_kind: user"));
     assert!(archive_text.contains("session: sess_001"));
+    assert!(archive_text.contains("jsonl_path: memory/projects/memfold/sessions/sess_001/evidence.jsonl"));
     assert!(archive_text.contains("promotable: true"));
 }
 

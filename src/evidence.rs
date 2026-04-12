@@ -101,7 +101,7 @@ pub fn write_evidence(config: &MemfoldConfig, input: &WriteEvidenceInput) -> Res
     let jsonl_line = serde_json::to_string(&jsonl_record)?;
     let line_no = append_jsonl_line(&jsonl_path, &jsonl_line)?;
 
-    let archive_entry = render_archive_entry(input, &evidence_id, &created_at);
+    let archive_entry = render_archive_entry(input, &evidence_id, &jsonl_rel_path, &created_at);
     append_markdown_entry(&archive_path, &archive_entry)?;
     let content_hash = content_hash(&archive_entry);
 
@@ -311,7 +311,12 @@ fn ends_with_newline(path: &Path) -> Result<bool> {
     Ok(byte[0] == b'\n')
 }
 
-fn render_archive_entry(input: &WriteEvidenceInput, evidence_id: &str, created_at: &str) -> String {
+fn render_archive_entry(
+    input: &WriteEvidenceInput,
+    evidence_id: &str,
+    jsonl_rel_path: &str,
+    created_at: &str,
+) -> String {
     let summary = input.summary.trim_end();
     let mut entry = String::new();
     entry.push_str(&format!(
@@ -322,6 +327,7 @@ fn render_archive_entry(input: &WriteEvidenceInput, evidence_id: &str, created_a
     ));
     entry.push_str(&format!("source_kind: {}\n", input.source_kind.as_str()));
     entry.push_str(&format!("session: {}\n", input.session_id));
+    entry.push_str(&format!("jsonl_path: {}\n", jsonl_rel_path));
     entry.push_str(&format!("scope: {}\n", input.scope.scope_key()));
     entry.push_str(&format!("evidence_id: {}\n", evidence_id));
     entry.push_str(&format!("promotable: {}\n", input.promotable));

@@ -103,18 +103,21 @@ Dreaming Phase 2 优先读这里，不是全文扫 evidence.jsonl。
 ## 10:32 [user] 用户明确要求默认用中文回答
 source_kind: user
 session: sess_xyz
+jsonl_path: memory/projects/foo/sessions/sess_xyz/evidence.jsonl
 evidence_id: ev_a1b2c3
 promotable: true
 
 ## 14:30 [feedback] 用户说路径判断不对
 source_kind: feedback
 session: sess_xyz
+jsonl_path: memory/projects/foo/sessions/sess_xyz/evidence.jsonl
 evidence_id: ev_d4e5f6
 promotable: false
 
 ## 16:00 [decision] 确认 claim_fingerprint 方案
 source_kind: decision
 session: sess_xyz
+jsonl_path: memory/projects/foo/sessions/sess_xyz/evidence.jsonl
 evidence_id: ev_g7h8i9
 promotable: true
 ```
