@@ -5,6 +5,7 @@ use memfold::evidence::{write_evidence, WriteEvidenceInput};
 use memfold::init::initialize_root;
 use rusqlite::{params, Connection};
 use tempfile::TempDir;
+use time::format_description::well_known::Rfc3339;
 use time::Duration;
 use time::OffsetDateTime;
 
@@ -91,4 +92,46 @@ fn scheduled_dream_respects_twenty_four_hour_cooldown() {
     let result = maybe_run_scheduled_dream(&config, &scope).unwrap();
     assert!(!result.ran);
     assert!(result.reason.starts_with("cooldown_hours"));
+}
+
+#[test]
+fn scheduled_dream_counts_mixed_timestamp_formats() {
+    let tmp = TempDir::new().unwrap();
+    let root = memfold_root(&tmp);
+    let config = MemfoldConfig::default_for_root(root.clone());
+    initialize_root(&config).unwrap();
+    let scope = ScopeRef::new(ScopeType::Project, "memfold").unwrap();
+
+    write_evidence(
+        &config,
+        &WriteEvidenceInput {
+            scope: scope.clone(),
+            session_id: "sched_mixed_seed".to_string(),
+            source_kind: SourceKind::User,
+            summary: "mixed timestamp candidate".to_string(),
+            promotable: true,
+            origin_mode: Mode::Normal,
+            claim_fingerprint: Some("cfp_sched_mixed".to_string()),
+        },
+    )
+    .unwrap();
+
+    let conn = Connection::open(config.state_db_path()).unwrap();
+    let last_applied_dt = OffsetDateTime::now_utc() - Duration::hours(30);
+    let ended_at = (last_applied_dt + Duration::hours(1)).to_string();
+    mark_sessions_ended(&conn, &scope, 5, &ended_at);
+    conn.execute(
+        "INSERT INTO dream_jobs (id, scope_type, scope_id, trigger, status, promoted, held, quarantined, discarded, created_at, updated_at)
+         VALUES ('dj_mixed', ?1, ?2, 'scheduled', 'applied', 1, 0, 0, 0, ?3, ?3)",
+        params![
+            scope.scope_type.as_str(),
+            &scope.scope_id,
+            last_applied_dt.format(&Rfc3339).unwrap(),
+        ],
+    )
+    .unwrap();
+
+    let result = maybe_run_scheduled_dream(&config, &scope).unwrap();
+    assert!(result.ran);
+    assert_eq!(result.result.unwrap().promoted, 1);
 }

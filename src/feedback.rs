@@ -3,7 +3,6 @@ use std::path::PathBuf;
 
 use rusqlite::{params, Connection};
 use serde::Serialize;
-use time::OffsetDateTime;
 use uuid::Uuid;
 
 use crate::boot::compile_scope_bundle;
@@ -11,6 +10,7 @@ use crate::config::MemfoldConfig;
 use crate::domain::ScopeRef;
 use crate::error::Result;
 use crate::state::schema;
+use crate::timestamps::now_rfc3339;
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize)]
 pub struct FeedbackResult {
@@ -27,7 +27,7 @@ pub fn apply_feedback(
     session_id: Option<&str>,
 ) -> Result<FeedbackResult> {
     let mut conn = open_connection(config)?;
-    let now = OffsetDateTime::now_utc().to_string();
+    let now = now_rfc3339();
 
     let targets = {
         let mut stmt = conn.prepare(

@@ -1,11 +1,11 @@
 use rusqlite::{params, Connection, OptionalExtension};
-use time::OffsetDateTime;
 use uuid::Uuid;
 
 use crate::config::MemfoldConfig;
 use crate::domain::ScopeRef;
 use crate::error::Result;
 use crate::state::schema;
+use crate::timestamps::now_rfc3339;
 
 const STATUS_PENDING: &str = "pending";
 const STATUS_APPLIED_TO_CONTENT: &str = "applied_to_content";
@@ -130,5 +130,5 @@ fn scope_prefix(scope: &ScopeRef) -> String {
 }
 
 fn current_timestamp() -> String {
-    OffsetDateTime::now_utc().to_string()
+    now_rfc3339()
 }

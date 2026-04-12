@@ -1,10 +1,8 @@
 use std::fs;
 
-use rusqlite::{params, Connection, OptionalExtension};
+use rusqlite::{params, Connection};
 use serde::Serialize;
 use sha2::{Digest, Sha256};
-use time::format_description::well_known::Rfc3339;
-use time::macros::format_description;
 use time::OffsetDateTime;
 use uuid::Uuid;
 
@@ -13,6 +11,7 @@ use crate::config::MemfoldConfig;
 use crate::domain::ScopeRef;
 use crate::error::{Error, Result};
 use crate::state::schema;
+use crate::timestamps::{now_rfc3339, parse_timestamp};
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize)]
 pub struct DreamRunResult {
@@ -39,7 +38,7 @@ pub fn run_dream(config: &MemfoldConfig, scope: &ScopeRef, trigger: &str) -> Res
     }
 
     let conn = open_connection(config)?;
-    let now = OffsetDateTime::now_utc().to_string();
+    let now = now_rfc3339();
     let job_id = format!("dj_{}", Uuid::new_v4().simple());
 
     conn.execute(
@@ -281,35 +280,8 @@ struct ScheduledGate {
 
 fn scheduled_gate(config: &MemfoldConfig, scope: &ScopeRef) -> Result<ScheduledGate> {
     let conn = open_connection(config)?;
-    let last_applied: Option<String> = conn
-        .query_row(
-            "SELECT updated_at
-             FROM dream_jobs
-             WHERE scope_type = ?1 AND scope_id = ?2 AND status = 'applied'
-             ORDER BY updated_at DESC
-             LIMIT 1",
-            params![scope.scope_type.as_str(), &scope.scope_id],
-            |row| row.get(0),
-        )
-        .optional()?;
-
-    let session_count: i64 = if let Some(last_applied) = &last_applied {
-        conn.query_row(
-            "SELECT COUNT(*)
-             FROM sessions
-             WHERE scope_type = ?1 AND scope_id = ?2 AND ended_at IS NOT NULL AND ended_at > ?3",
-            params![scope.scope_type.as_str(), &scope.scope_id, last_applied],
-            |row| row.get(0),
-        )?
-    } else {
-        conn.query_row(
-            "SELECT COUNT(*)
-             FROM sessions
-             WHERE scope_type = ?1 AND scope_id = ?2 AND ended_at IS NOT NULL",
-            params![scope.scope_type.as_str(), &scope.scope_id],
-            |row| row.get(0),
-        )?
-    };
+    let last_applied = latest_applied_timestamp(&conn, scope)?;
+    let session_count = ended_session_count_since(&conn, scope, last_applied)?;
 
     if session_count < 5 {
         return Ok(ScheduledGate {
@@ -319,8 +291,6 @@ fn scheduled_gate(config: &MemfoldConfig, scope: &ScopeRef) -> Result<ScheduledG
     }
 
     if let Some(last_applied) = last_applied {
-        let last_applied = parse_timestamp(&last_applied)
-            .ok_or_else(|| Error::DreamingNotEligible("invalid_last_applied_timestamp".to_string()))?;
         let hours_elapsed = ((OffsetDateTime::now_utc() - last_applied).whole_hours()) as i64;
         if hours_elapsed < 24 {
             return Ok(ScheduledGate {
@@ -336,25 +306,54 @@ fn scheduled_gate(config: &MemfoldConfig, scope: &ScopeRef) -> Result<ScheduledG
     })
 }
 
-fn parse_timestamp(value: &str) -> Option<OffsetDateTime> {
-    OffsetDateTime::parse(value, &Rfc3339)
-        .ok()
-        .or_else(|| {
-            OffsetDateTime::parse(
-                value,
-                &format_description!(
-                    "[year]-[month]-[day] [hour]:[minute]:[second].[subsecond] [offset_hour sign:mandatory]:[offset_minute]:[offset_second]"
-                ),
-            )
-            .ok()
-        })
-        .or_else(|| {
-            OffsetDateTime::parse(
-                value,
-                &format_description!(
-                    "[year]-[month]-[day] [hour]:[minute]:[second] [offset_hour sign:mandatory]:[offset_minute]:[offset_second]"
-                ),
-            )
-            .ok()
-        })
+fn latest_applied_timestamp(conn: &Connection, scope: &ScopeRef) -> Result<Option<OffsetDateTime>> {
+    let mut stmt = conn.prepare(
+        "SELECT updated_at
+         FROM dream_jobs
+         WHERE scope_type = ?1 AND scope_id = ?2 AND status = 'applied'",
+    )?;
+    let rows = stmt.query_map(params![scope.scope_type.as_str(), &scope.scope_id], |row| {
+        row.get::<_, String>(0)
+    })?;
+
+    let mut latest = None;
+    for row in rows {
+        let value = row?;
+        let parsed = parse_timestamp(&value)
+            .ok_or_else(|| Error::DreamingNotEligible("invalid_last_applied_timestamp".to_string()))?;
+        latest = Some(match latest {
+            Some(current) if current >= parsed => current,
+            _ => parsed,
+        });
+    }
+
+    Ok(latest)
+}
+
+fn ended_session_count_since(
+    conn: &Connection,
+    scope: &ScopeRef,
+    last_applied: Option<OffsetDateTime>,
+) -> Result<i64> {
+    let mut stmt = conn.prepare(
+        "SELECT ended_at
+         FROM sessions
+         WHERE scope_type = ?1 AND scope_id = ?2 AND ended_at IS NOT NULL",
+    )?;
+    let rows = stmt.query_map(params![scope.scope_type.as_str(), &scope.scope_id], |row| {
+        row.get::<_, String>(0)
+    })?;
+
+    let mut count = 0i64;
+    for row in rows {
+        let value = row?;
+        let ended_at = parse_timestamp(&value).ok_or_else(|| {
+            Error::DreamingNotEligible("invalid_session_ended_timestamp".to_string())
+        })?;
+        if last_applied.map(|applied| ended_at > applied).unwrap_or(true) {
+            count += 1;
+        }
+    }
+
+    Ok(count)
 }

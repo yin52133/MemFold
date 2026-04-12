@@ -3,7 +3,6 @@ use std::fs;
 use rusqlite::{params, Connection};
 use serde::Serialize;
 use sha2::{Digest, Sha256};
-use time::OffsetDateTime;
 
 use crate::boot::compile_scope_bundle;
 use crate::config::MemfoldConfig;
@@ -11,6 +10,7 @@ use crate::domain::{ScopeRef, ScopeType};
 use crate::error::Result;
 use crate::qmd_adapter::sync_scope;
 use crate::state::schema;
+use crate::timestamps::now_rfc3339;
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize)]
 pub struct RepairResult {
@@ -110,7 +110,7 @@ fn rebuild_memory_items(config: &MemfoldConfig, conn: &Connection, scope: &Scope
                     item.claim_fingerprint,
                     item.content_hash,
                     item.revision,
-                    OffsetDateTime::now_utc().to_string(),
+                    now_rfc3339(),
                 ],
             )?;
             count += 1;
@@ -182,7 +182,7 @@ fn rebuild_evidence_items(config: &MemfoldConfig, conn: &Connection, scope: &Sco
                 &session_id,
                 scope.scope_type.as_str(),
                 &scope.scope_id,
-                OffsetDateTime::now_utc().to_string(),
+                now_rfc3339(),
                 evidence_count,
             ],
         )?;

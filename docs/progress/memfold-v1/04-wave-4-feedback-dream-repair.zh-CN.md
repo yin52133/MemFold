@@ -36,6 +36,8 @@
 
 - `cargo test --test feedback_dream_repair --test cli_e2e`
   - 结果：PASS
+- `cargo test --test dream_schedule`
+  - 结果：PASS
 - `cargo test`
   - 结果：PASS
 
@@ -48,3 +50,4 @@
 - `2026-04-12`: 初始化 Wave 4 进度文件
 - `2026-04-12`: 切换为 `in_progress`，开始 feedback/dream/repair 实施
 - `2026-04-12`: Wave 4 完成，反馈、dream、repair 与相关 CLI/E2E 全部通过
+- `2026-04-12`: 修复 scheduled dream 对 mixed timestamp format 的兼容性回归，避免 cooldown 门控因旧格式时间戳解析失败而误拒绝运行

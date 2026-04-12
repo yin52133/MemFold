@@ -28,6 +28,8 @@
 
 - `cargo test --test cli_wave2 --test cli_e2e`
   - 结果：PASS
+- `./scripts/verify_codex_global.sh`
+  - 结果：PASS
 - `cargo test`
   - 结果：PASS
 
@@ -39,3 +41,4 @@
 
 - `2026-04-12`: 初始化 Wave 5 进度文件
 - `2026-04-12`: Codex 主路径 E2E 已跑通，Wave 5 切换为 `done`
+- `2026-04-12`: 重新部署全局 `memfold` 二进制并完成 `session_start/load`、`turn_end/session_end hook` 的实机落盘验证

@@ -6,6 +6,7 @@ use rusqlite::{params, Connection, Transaction};
 use serde::Serialize;
 use sha2::{Digest, Sha256};
 use time::OffsetDateTime;
+
 use crate::config::MemfoldConfig;
 use crate::domain::{Mode, ScopeRef, SourceKind};
 use crate::error::{Error, Result};
@@ -13,6 +14,7 @@ use crate::memory_fs::jsonl::append_jsonl_line;
 use crate::memory_fs::paths::{archive_daily_path, session_evidence_path};
 use crate::mutations::MutationStore;
 use crate::state::schema;
+use crate::timestamps::now_rfc3339;
 
 #[derive(Debug, Clone)]
 pub struct WriteEvidenceInput {
@@ -341,7 +343,7 @@ fn content_hash(value: &str) -> String {
 }
 
 fn current_timestamp() -> String {
-    OffsetDateTime::now_utc().to_string()
+    now_rfc3339()
 }
 
 fn current_archive_date() -> String {

@@ -5,12 +5,12 @@ use fastembed::{EmbeddingModel as FastEmbeddingModel, InitOptions, TextEmbedding
 use rusqlite::{params, Connection, OptionalExtension};
 use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
-use time::OffsetDateTime;
 
 use crate::config::MemfoldConfig;
 use crate::domain::ScopeRef;
 use crate::error::Result;
 use crate::state::schema;
+use crate::timestamps::now_rfc3339;
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 pub struct QmdRecord {
@@ -423,7 +423,7 @@ fn parse_archive_entries(path: &Path) -> Result<Vec<ParsedArchiveEntry>> {
 }
 
 fn now_string() -> String {
-    OffsetDateTime::now_utc().to_string()
+    now_rfc3339()
 }
 
 enum Embedder {

@@ -1,12 +1,12 @@
 use rusqlite::{params, Connection, OptionalExtension};
 use serde::Serialize;
-use time::OffsetDateTime;
 
 use crate::config::MemfoldConfig;
 use crate::domain::{Mode, ScopeRef, SourceKind};
 use crate::error::Result;
 use crate::evidence::{write_evidence, WriteEvidenceInput};
 use crate::state::schema;
+use crate::timestamps::now_rfc3339;
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum HookEvent {
@@ -153,7 +153,7 @@ fn mark_session_ended(config: &MemfoldConfig, input: &HookCaptureInput) -> Resul
          SET ended_at = ?1
          WHERE id = ?2 AND scope_type = ?3 AND scope_id = ?4",
         params![
-            OffsetDateTime::now_utc().to_string(),
+            now_rfc3339(),
             &input.session_id,
             input.scope.scope_type.as_str(),
             &input.scope.scope_id,
