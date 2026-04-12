@@ -19,3 +19,6 @@ memfold --root ~/.codex/memfold search --scope-type <scope_type> --scope-id <sco
 ```
 
 Return the result JSON and summarize the top matches.
+
+Current shipped command surface remains `search --scope-type user|project`.
+The retrieval stack may surface results from stable memory, history summaries, and session logs.

@@ -18,3 +18,5 @@ memfold --root ~/.codex/memfold search \
 
 - `continue`: prior work / prior decisions / prior constraints
 - `knowledge_lookup`: background or reference lookup
+
+Results may come from stable memory, history summaries, and session-log-backed retrieval records.

@@ -1,6 +1,6 @@
 # /memfold-remember
 
-Write a promotable MemFold evidence record for a stable preference, rule, or constraint.
+Write a promotable MemFold memory candidate record for a stable preference, rule, or constraint.
 
 ## Arguments
 
@@ -18,3 +18,7 @@ Run:
 ```bash
 memfold --root ~/.codex/memfold write-evidence --scope-type <scope_type> --scope-id <scope_id> --session-id <session_id> --source-kind <source_kind> --summary "<summary>" --promotable 1 --origin-mode normal [--claim-fingerprint <claim_fingerprint>]
 ```
+
+Note:
+- Current shipped host surface still uses `write-evidence`.
+- Under the hood, this record is part of the session logging flow and may later promote into stable memory.

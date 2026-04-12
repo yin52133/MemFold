@@ -14,7 +14,7 @@
   "interface": {
     "displayName": "MemFold",
     "shortDescription": "Layered memory for Codex",
-    "longDescription": "MemFold adds layered memory, controlled promotion, QMD retrieval, hook capture, and dreaming flows to Codex.",
+    "longDescription": "MemFold adds layered memory, traceable session logging, controlled promotion, QMD retrieval, hook capture, and dreaming flows to Codex.",
     "developerName": "yin52133",
     "category": "Coding",
     "capabilities": ["Interactive", "Read", "Write"],
@@ -22,7 +22,7 @@
     "defaultPrompt": [
       "Use /dream to consolidate promotable memory",
       "Use /qmd to sync or inspect retrieval index",
-      "Use /memfold-search to retrieve prior context"
+      "Use /memfold-search to retrieve prior context from stable memory, history, and session logs"
     ],
     "brandColor": "#0F766E",
     "composerIcon": "./assets/icon.txt",

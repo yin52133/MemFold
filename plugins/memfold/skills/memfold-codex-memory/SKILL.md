@@ -36,3 +36,4 @@ Use MemFold at:
 - Only explicit stable memory candidates should be written with `promotable=1`.
 - Do not auto-search in `sterile` mode.
 - Prefer the focused MemFold sub-skills over dumping full CLI help.
+- Current shipped host-facing commands still use `write-evidence` and `scope-type user|project`.

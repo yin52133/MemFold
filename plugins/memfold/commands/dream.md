@@ -28,3 +28,4 @@ memfold --root ~/.codex/memfold dream run --scope-type <scope_type> --scope-id <
 - whether dreaming ran
 - promoted / discarded counts
 - whether bundle and qmd were refreshed
+- whether decisions were based on stable memory, history summaries, or targeted session-log fallback

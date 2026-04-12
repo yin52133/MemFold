@@ -26,4 +26,4 @@ memfold --root ~/.codex/memfold qmd sync --scope-type <scope_type> --scope-id <s
 3. Report:
 - model status
 - whether embeddings are enabled
-- number of indexed records
+- number of indexed records from stable memory, history summaries, and session logs
