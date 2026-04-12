@@ -47,8 +47,13 @@ cp "${REPO_ROOT}/docs/integrations/codex/README.zh-CN.md" "${MEMFOLD_HOME}/docs/
 cp "${REPO_ROOT}/docs/integrations/codex/README.en.md" "${MEMFOLD_HOME}/docs/README.codex.en.md"
 cp "${REPO_ROOT}/docs/integrations/codex/AGENTS.example.md" "${MEMFOLD_HOME}/docs/AGENTS.example.md"
 rm -rf "${SKILL_DIR}"
-ln -sfn "${REPO_ROOT}/skills/memfold-codex-memory" "${SKILL_DIR}"
+ln -sfn "${REPO_ROOT}/plugins/memfold/skills/memfold-codex-memory" "${SKILL_DIR}"
+rm -rf "${CODEX_HOME}/skills/memfold-dream" "${CODEX_HOME}/skills/memfold-qmd" "${CODEX_HOME}/skills/memfold-search" "${CODEX_HOME}/skills/memfold-remember" "${CODEX_HOME}/skills/memfold-forget"
 ln -sfn "${REPO_ROOT}/plugins/memfold" "${HOME_PLUGIN_DIR}"
+for skill in memfold-dream memfold-qmd memfold-search memfold-remember memfold-forget; do
+  rm -rf "${CODEX_HOME}/skills/${skill}"
+  ln -sfn "${REPO_ROOT}/skills/${skill}" "${CODEX_HOME}/skills/${skill}"
+done
 cp "${REPO_ROOT}/README.md" "${MEMFOLD_HOME}/README.repo.zh-CN.md"
 cp "${REPO_ROOT}/README.en.md" "${MEMFOLD_HOME}/README.repo.en.md"
 cp "${REPO_ROOT}/hooks/local/README.zh-CN.md" "${MEMFOLD_HOME}/docs/hooks.local.zh-CN.md"
