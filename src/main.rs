@@ -13,11 +13,14 @@ use memfold::error::Error;
 use memfold::evidence::{write_evidence, WriteEvidenceInput};
 use memfold::experiments::{default_fixture_path, run_fixture};
 use memfold::feedback::apply_feedback;
+use memfold::history::{SummarizeHistoryInput, summarize_history};
 use memfold::hooks::{capture_event, HookCaptureInput, HookEvent};
 use memfold::init::initialize_root;
 use memfold::qmd_adapter::{init_model as init_qmd_model, sync_scope};
 use memfold::repair::run_repair;
 use memfold::retrieval::search_memories;
+use memfold::runtime_log::StageLogger;
+use memfold::trace::{TraceQuery, trace_find};
 
 #[derive(Parser, Debug)]
 #[command(name = "memfold")]
@@ -54,6 +57,8 @@ enum Commands {
         source_kind: String,
         #[arg(long)]
         summary: String,
+        #[arg(long = "raw-text")]
+        raw_text: Option<String>,
         #[arg(long)]
         promotable: u8,
         #[arg(long = "origin-mode")]
@@ -72,6 +77,16 @@ enum Commands {
         query: String,
         #[arg(long)]
         budget: usize,
+    },
+    SummarizeHistory {
+        #[arg(long = "scope-type")]
+        scope_type: String,
+        #[arg(long = "scope-id")]
+        scope_id: String,
+        #[arg(long = "session-id")]
+        session_id: String,
+        #[arg(long)]
+        trigger: String,
     },
     Qmd {
         #[command(subcommand)]
@@ -112,6 +127,10 @@ enum Commands {
     Hook {
         #[command(subcommand)]
         command: HookCommands,
+    },
+    Trace {
+        #[command(subcommand)]
+        command: TraceCommands,
     },
 }
 
@@ -191,6 +210,18 @@ enum HookCommands {
     },
 }
 
+#[derive(Subcommand, Debug)]
+enum TraceCommands {
+    Find {
+        #[arg(long)]
+        query: String,
+        #[arg(long = "scope-type")]
+        scope_type: Option<String>,
+        #[arg(long = "scope-id")]
+        scope_id: Option<String>,
+    },
+}
+
 #[derive(Serialize)]
 struct InitPayload {
     created_paths: Vec<String>,
@@ -250,7 +281,9 @@ fn run(cli: Cli) -> Result<(), Error> {
 
     match cli.command {
         Commands::Init {} => {
-            let summary = initialize_root(&config)?;
+            let summary = run_stage(&config, "init", "init", "initialized root", || {
+                initialize_root(&config)
+            })?;
             println!(
                 "{}",
                 serde_json::to_string(&InitPayload {
@@ -269,7 +302,9 @@ fn run(cli: Cli) -> Result<(), Error> {
             let scope_type = ScopeType::from_str(&scope_type)?;
             let scope = ScopeRef::new(scope_type, scope_id)?;
             let _intent = Intent::from_str(&intent)?;
-            let loaded = load_startup_bundle(&config, &scope, mode, budget)?;
+            let loaded = run_stage(&config, "load", "load", "loaded startup bundle", || {
+                load_startup_bundle(&config, &scope, mode, budget)
+            })?;
 
             let items = loaded
                 .items
@@ -300,6 +335,7 @@ fn run(cli: Cli) -> Result<(), Error> {
             session_id,
             source_kind,
             summary,
+            raw_text,
             promotable,
             origin_mode,
             claim_fingerprint,
@@ -310,11 +346,18 @@ fn run(cli: Cli) -> Result<(), Error> {
                 session_id,
                 source_kind: SourceKind::from_str(&source_kind)?,
                 summary,
+                raw_text,
                 promotable: promotable == 1,
                 origin_mode: Mode::from_str(&origin_mode)?,
                 claim_fingerprint,
             };
-            let written = write_evidence(&config, &input)?;
+            let written = run_stage(
+                &config,
+                "write-evidence",
+                "write_evidence",
+                "wrote session log entry",
+                || write_evidence(&config, &input),
+            )?;
             println!("{}", serde_json::to_string(&written)?);
         }
         Commands::Search {
@@ -326,12 +369,45 @@ fn run(cli: Cli) -> Result<(), Error> {
         } => {
             let scope = ScopeRef::new(ScopeType::from_str(&scope_type)?, scope_id)?;
             let intent = Intent::from_str(&intent)?;
-            let response = search_memories(&config, &scope, intent, &query, budget)?;
+            let response = run_stage(&config, "search", "search", "search finished", || {
+                search_memories(&config, &scope, intent, &query, budget)
+            })?;
             println!("{}", serde_json::to_string(&response)?);
+        }
+        Commands::SummarizeHistory {
+            scope_type,
+            scope_id,
+            session_id,
+            trigger,
+        } => {
+            let scope = ScopeRef::new(ScopeType::from_str(&scope_type)?, scope_id)?;
+            let result = run_stage(
+                &config,
+                "summarize-history",
+                "summarize_history",
+                "history summarized",
+                || {
+                    summarize_history(
+                        &config,
+                        &SummarizeHistoryInput {
+                            scope,
+                            session_id,
+                            trigger,
+                        },
+                    )
+                },
+            )?;
+            println!("{}", serde_json::to_string(&result)?);
         }
         Commands::Qmd { command } => match command {
             QmdCommands::InitModel { model } => {
-                let result = init_qmd_model(&config, &model)?;
+                let result = run_stage(
+                    &config,
+                    "qmd-init-model",
+                    "qmd_init_model",
+                    "qmd model initialized",
+                    || init_qmd_model(&config, &model),
+                )?;
                 println!("{}", serde_json::to_string(&result)?);
             }
             QmdCommands::Sync {
@@ -339,7 +415,9 @@ fn run(cli: Cli) -> Result<(), Error> {
                 scope_id,
             } => {
                 let scope = ScopeRef::new(ScopeType::from_str(&scope_type)?, scope_id)?;
-                let synced = sync_scope(&config, &scope)?;
+                let synced = run_stage(&config, "qmd-sync", "qmd_sync", "qmd sync finished", || {
+                    sync_scope(&config, &scope)
+                })?;
                 println!(
                     "{}",
                     serde_json::to_string(&serde_json::json!({
@@ -356,7 +434,13 @@ fn run(cli: Cli) -> Result<(), Error> {
                 budget,
             } => {
                 let scope = ScopeRef::new(ScopeType::from_str(&scope_type)?, scope_id)?;
-                let result = compile_scope_bundle(&config, &scope, budget)?;
+                let result = run_stage(
+                    &config,
+                    "bundle-compile",
+                    "bundle_compile",
+                    "bundle compiled",
+                    || compile_scope_bundle(&config, &scope, budget),
+                )?;
                 println!(
                     "{}",
                     serde_json::to_string(&serde_json::json!({
@@ -377,14 +461,16 @@ fn run(cli: Cli) -> Result<(), Error> {
             session_id,
         } => {
             let scope = ScopeRef::new(ScopeType::from_str(&scope_type)?, scope_id)?;
-            let result = apply_feedback(
-                &config,
-                &scope,
-                &claim_fingerprint,
-                &verdict,
-                &reason,
-                session_id.as_deref(),
-            )?;
+            let result = run_stage(&config, "feedback", "feedback", "feedback applied", || {
+                apply_feedback(
+                    &config,
+                    &scope,
+                    &claim_fingerprint,
+                    &verdict,
+                    &reason,
+                    session_id.as_deref(),
+                )
+            })?;
             println!("{}", serde_json::to_string(&result)?);
         }
         Commands::Dream { command } => match command {
@@ -394,7 +480,9 @@ fn run(cli: Cli) -> Result<(), Error> {
                 trigger,
             } => {
                 let scope = ScopeRef::new(ScopeType::from_str(&scope_type)?, scope_id)?;
-                let result = run_dream(&config, &scope, &trigger)?;
+                let result = run_stage(&config, "dream-run", "dream_run", "dream run finished", || {
+                    run_dream(&config, &scope, &trigger)
+                })?;
                 println!("{}", serde_json::to_string(&result)?);
             }
             DreamCommands::MaybeRun {
@@ -402,7 +490,13 @@ fn run(cli: Cli) -> Result<(), Error> {
                 scope_id,
             } => {
                 let scope = ScopeRef::new(ScopeType::from_str(&scope_type)?, scope_id)?;
-                let result = maybe_run_scheduled_dream(&config, &scope)?;
+                let result = run_stage(
+                    &config,
+                    "dream-maybe-run",
+                    "dream_maybe_run",
+                    "dream maybe-run finished",
+                    || maybe_run_scheduled_dream(&config, &scope),
+                )?;
                 println!("{}", serde_json::to_string(&result)?);
             }
         },
@@ -416,13 +510,21 @@ fn run(cli: Cli) -> Result<(), Error> {
                 }
                 _ => None,
             };
-            let result = run_repair(&config, scope.as_ref())?;
+            let result = run_stage(&config, "repair", "repair", "repair finished", || {
+                run_repair(&config, scope.as_ref())
+            })?;
             println!("{}", serde_json::to_string(&result)?);
         }
         Commands::Experiment { command } => match command {
             ExperimentCommands::Run { fixture } => {
                 let fixture = fixture.unwrap_or_else(default_fixture_path);
-                let result = run_fixture(&fixture)?;
+                let result = run_stage(
+                    &config,
+                    "experiment-run",
+                    "experiment_run",
+                    "experiment run finished",
+                    || run_fixture(&fixture),
+                )?;
                 println!("{}", serde_json::to_string(&result)?);
             }
         },
@@ -438,28 +540,84 @@ fn run(cli: Cli) -> Result<(), Error> {
                 state_changed,
                 promotable,
             } => {
-                let event = HookEvent::from_str(&event).ok_or_else(|| Error::InvalidEnumValue {
-                    kind: "hook_event",
-                    value: event.clone(),
-                })?;
-                let scope = ScopeRef::new(ScopeType::from_str(&scope_type)?, scope_id)?;
-                let result = capture_event(
+                let result = run_stage(
                     &config,
-                    &HookCaptureInput {
-                        event,
-                        scope,
-                        session_id,
-                        source_kind: SourceKind::from_str(&source_kind)?,
-                        summary,
-                        origin_mode: Mode::from_str(&origin_mode)?,
-                        state_changed: state_changed == 1,
-                        promotable: promotable == 1,
+                    "hook-capture",
+                    "hook_capture",
+                    "hook capture finished",
+                    || {
+                        let event =
+                            HookEvent::from_str(&event).ok_or_else(|| Error::InvalidEnumValue {
+                                kind: "hook_event",
+                                value: event.clone(),
+                            })?;
+                        let scope = ScopeRef::new(ScopeType::from_str(&scope_type)?, scope_id)?;
+                        capture_event(
+                            &config,
+                            &HookCaptureInput {
+                                event,
+                                scope,
+                                session_id,
+                                source_kind: SourceKind::from_str(&source_kind)?,
+                                summary,
+                                origin_mode: Mode::from_str(&origin_mode)?,
+                                state_changed: state_changed == 1,
+                                promotable: promotable == 1,
+                            },
+                        )
                     },
                 )?;
+                println!("{}", serde_json::to_string(&result)?);
+            }
+        },
+        Commands::Trace { command } => match command {
+            TraceCommands::Find {
+                query,
+                scope_type,
+                scope_id,
+            } => {
+                let scope = match (scope_type, scope_id) {
+                    (Some(scope_type), Some(scope_id)) => {
+                        Some(ScopeRef::new(ScopeType::from_str(&scope_type)?, scope_id)?)
+                    }
+                    _ => None,
+                };
+                let result = run_stage(&config, "trace-find", "trace_find", "trace lookup finished", || {
+                    trace_find(
+                        &config,
+                        &TraceQuery {
+                            scope,
+                            query,
+                        },
+                    )
+                })?;
                 println!("{}", serde_json::to_string(&result)?);
             }
         },
     }
 
     Ok(())
+}
+
+fn run_stage<T, F>(
+    config: &MemfoldConfig,
+    command: &str,
+    stage: &str,
+    success_message: &str,
+    f: F,
+) -> Result<T, Error>
+where
+    F: FnOnce() -> Result<T, Error>,
+{
+    let logger = StageLogger::start(config, command, stage);
+    match f() {
+        Ok(value) => {
+            logger.finish(Some(success_message));
+            Ok(value)
+        }
+        Err(error) => {
+            logger.fail(error.error_name());
+            Err(error)
+        }
+    }
 }

@@ -82,6 +82,7 @@ fn embedding_enabled_search_still_returns_results() {
             session_id: "sess_embed".to_string(),
             source_kind: SourceKind::User,
             summary: "embedding aware retrieval note".to_string(),
+            raw_text: None,
             promotable: true,
             origin_mode: Mode::Normal,
             claim_fingerprint: Some("cfp_embed_evidence".to_string()),

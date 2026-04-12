@@ -3,6 +3,7 @@ use std::fs;
 use memfold::config::MemfoldConfig;
 use memfold::domain::{Intent, ScopeRef, ScopeType, SourceKind, Mode};
 use memfold::evidence::{write_evidence, WriteEvidenceInput};
+use memfold::history::{SummarizeHistoryInput, summarize_history};
 use memfold::init::initialize_root;
 use memfold::qmd_adapter::{load_scope_records, sync_scope};
 use memfold::retrieval::{search_memories, SearchResponse};
@@ -116,9 +117,19 @@ fn sync_scope_builds_sidecar_records_for_stable_evidence_and_archive_sources() {
             session_id: "sess_search".to_string(),
             source_kind: SourceKind::User,
             summary: "shared gamma evidence".to_string(),
+            raw_text: None,
             promotable: true,
             origin_mode: Mode::Normal,
             claim_fingerprint: Some("cfp_gamma".to_string()),
+        },
+    )
+    .unwrap();
+    summarize_history(
+        &config,
+        &SummarizeHistoryInput {
+            scope: scope.clone(),
+            session_id: "sess_search".to_string(),
+            trigger: "session_end".to_string(),
         },
     )
     .unwrap();
@@ -154,6 +165,12 @@ fn sync_scope_builds_sidecar_records_for_stable_evidence_and_archive_sources() {
     assert!(evidence_record.pointer.ends_with("#1"));
     assert_eq!(evidence_record.summary, "shared gamma evidence");
     assert_eq!(evidence_record.status, "promotable");
+
+    let history_record = records
+        .iter()
+        .find(|record| record.source_type == "history")
+        .unwrap();
+    assert!(history_record.summary.contains("shared gamma evidence"));
 }
 
 #[test]
@@ -181,9 +198,19 @@ fn search_memories_auto_syncs_missing_qmd_and_orders_by_intent() {
             session_id: "sess_search".to_string(),
             source_kind: SourceKind::User,
             summary: "shared gamma evidence".to_string(),
+            raw_text: None,
             promotable: true,
             origin_mode: Mode::Normal,
             claim_fingerprint: Some("cfp_gamma".to_string()),
+        },
+    )
+    .unwrap();
+    summarize_history(
+        &config,
+        &SummarizeHistoryInput {
+            scope: scope.clone(),
+            session_id: "sess_search".to_string(),
+            trigger: "session_end".to_string(),
         },
     )
     .unwrap();

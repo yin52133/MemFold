@@ -15,6 +15,12 @@ run_memfold hook capture \
   --state-changed "${MEMFOLD_STATE_CHANGED:-1}" \
   --promotable 0 >/dev/null
 
+run_memfold summarize-history \
+  --scope-type "${MEMFOLD_SCOPE_TYPE}" \
+  --scope-id "${MEMFOLD_SCOPE_ID}" \
+  --session-id "${MEMFOLD_SESSION_ID}" \
+  --trigger session_end >/dev/null || true
+
 nohup "${MEMFOLD_BIN}" --root "${MEMFOLD_ROOT}" dream maybe-run \
   --scope-type "${MEMFOLD_SCOPE_TYPE}" \
   --scope-id "${MEMFOLD_SCOPE_ID}" >/dev/null 2>&1 &

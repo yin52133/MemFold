@@ -226,7 +226,7 @@ fn rebuild_trace_archives(config: &MemfoldConfig, conn: &Connection, scope: &Sco
                     content_hash, created_at, deleted_at
                 ) VALUES (?1, ?2, ?3, ?4, 'daily_log', ?5, NULL, ?6, ?7, NULL)",
                 params![
-                    entry.evidence_id,
+                    entry.entry_id,
                     scope.scope_type.as_str(),
                     &scope.scope_id,
                     &archive_date,
@@ -305,7 +305,7 @@ fn parse_stable_items(path: &std::path::Path) -> Result<Vec<StableItem>> {
 
 #[derive(Debug)]
 struct ArchiveEntry {
-    evidence_id: String,
+    entry_id: String,
     created_at: String,
     raw_block: String,
 }
@@ -313,15 +313,19 @@ struct ArchiveEntry {
 fn parse_archive_entries(path: &std::path::Path) -> Result<Vec<ArchiveEntry>> {
     let contents = fs::read_to_string(path)?;
     let mut entries = Vec::new();
+    let mut current_prelude = Vec::new();
     let mut current_header: Option<String> = None;
     let mut current_lines = Vec::new();
 
     for line in contents.lines() {
-        if line.starts_with("## ") {
+        if line.starts_with("<!-- ") && current_header.is_none() {
+            current_prelude.push(line.to_string());
+        } else if line.starts_with("## ") {
             if let Some(header) = current_header.take() {
-                if let Some(entry) = finalize_archive_entry(&header, &current_lines) {
+                if let Some(entry) = finalize_archive_entry(&current_prelude, &header, &current_lines) {
                     entries.push(entry);
                 }
+                current_prelude.clear();
                 current_lines.clear();
             }
             current_header = Some(line.to_string());
@@ -331,7 +335,7 @@ fn parse_archive_entries(path: &std::path::Path) -> Result<Vec<ArchiveEntry>> {
     }
 
     if let Some(header) = current_header.take() {
-        if let Some(entry) = finalize_archive_entry(&header, &current_lines) {
+        if let Some(entry) = finalize_archive_entry(&current_prelude, &header, &current_lines) {
             entries.push(entry);
         }
     }
@@ -339,18 +343,37 @@ fn parse_archive_entries(path: &std::path::Path) -> Result<Vec<ArchiveEntry>> {
     Ok(entries)
 }
 
-fn finalize_archive_entry(header: &str, lines: &[String]) -> Option<ArchiveEntry> {
+fn finalize_archive_entry(prelude: &[String], header: &str, lines: &[String]) -> Option<ArchiveEntry> {
     let created_at = header
         .trim_start_matches("## ")
         .split(' ')
         .next()
         .unwrap_or_default()
         .to_string();
-    let evidence_id = lines
+    let entry_id = prelude
         .iter()
-        .find_map(|line| line.strip_prefix("evidence_id:").map(|value| value.trim().to_string()))?;
+        .find_map(|line| {
+            line.strip_prefix("<!-- ")
+                .and_then(|value| value.strip_suffix(" -->"))
+                .and_then(|value| {
+                    value.split('|').find_map(|part| {
+                        part.trim()
+                            .strip_prefix("summary_id: ")
+                            .map(|value| value.trim().to_string())
+                    })
+                })
+        })
+        .or_else(|| {
+            lines
+                .iter()
+                .find_map(|line| line.strip_prefix("evidence_id:").map(|value| value.trim().to_string()))
+        })?;
 
     let mut raw_block = String::new();
+    for line in prelude {
+        raw_block.push_str(line);
+        raw_block.push('\n');
+    }
     raw_block.push_str(header);
     raw_block.push('\n');
     for line in lines {
@@ -359,7 +382,7 @@ fn finalize_archive_entry(header: &str, lines: &[String]) -> Option<ArchiveEntry
     }
 
     Some(ArchiveEntry {
-        evidence_id,
+        entry_id,
         created_at,
         raw_block,
     })

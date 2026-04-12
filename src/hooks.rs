@@ -65,6 +65,7 @@ pub fn capture_event(config: &MemfoldConfig, input: &HookCaptureInput) -> Result
         session_id: input.session_id.clone(),
         source_kind: input.source_kind,
         summary: normalized_summary.clone(),
+        raw_text: None,
         promotable: input.promotable,
         origin_mode: input.origin_mode,
         claim_fingerprint: None,

@@ -42,6 +42,15 @@ pub enum Error {
 
     #[error("session missing: {0}")]
     SessionMissing(String),
+
+    #[error("trace not found: {0}")]
+    TraceNotFound(String),
+
+    #[error("session log corrupted: {0}")]
+    SessionLogCorrupted(String),
+
+    #[error("history summary failed: {0}")]
+    HistorySummaryFailed(String),
 }
 
 impl Error {
@@ -56,6 +65,9 @@ impl Error {
             Self::EmptyQuery => 40,
             Self::UnsafeSummary => 30,
             Self::SessionMissing(_) => 31,
+            Self::TraceNotFound(_) => 41,
+            Self::SessionLogCorrupted(_) => 42,
+            Self::HistorySummaryFailed(_) => 52,
             Self::TomlDe(_) | Self::TomlSer(_) | Self::Json(_) => 13,
         }
     }
@@ -72,6 +84,9 @@ impl Error {
             Self::EmptyQuery => "EMPTY_QUERY",
             Self::UnsafeSummary => "UNSAFE_SUMMARY",
             Self::SessionMissing(_) => "SESSION_MISSING",
+            Self::TraceNotFound(_) => "TRACE_NOT_FOUND",
+            Self::SessionLogCorrupted(_) => "SESSION_LOG_CORRUPTED",
+            Self::HistorySummaryFailed(_) => "HISTORY_SUMMARY_FAILED",
             Self::TomlDe(_) => "TOML_DECODE_ERROR",
             Self::TomlSer(_) => "TOML_ENCODE_ERROR",
             Self::Json(_) => "JSON_ERROR",

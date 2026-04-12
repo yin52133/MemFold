@@ -28,6 +28,7 @@ CREATE TABLE IF NOT EXISTS session_log_entries (
     scope_id TEXT NOT NULL,
     source_kind TEXT NOT NULL,
     summary TEXT NOT NULL DEFAULT '',
+    raw_text TEXT,
     jsonl_path TEXT NOT NULL,
     line_no INTEGER NOT NULL,
     promotable INTEGER NOT NULL DEFAULT 0,
@@ -171,6 +172,7 @@ CREATE INDEX IF NOT EXISTS idx_tombstones_claim_fingerprint
 
 pub fn apply_schema(conn: &Connection) -> rusqlite::Result<()> {
     conn.execute_batch(SCHEMA_SQL)?;
+    ensure_session_log_raw_text_column(conn)?;
     migrate_legacy_evidence_items(conn)?;
     conn.execute_batch(
         r#"
@@ -182,6 +184,7 @@ SELECT
     scope_id,
     source_kind,
     summary,
+    raw_text,
     jsonl_path,
     line_no,
     promotable,
@@ -191,6 +194,18 @@ SELECT
 FROM session_log_entries;
 "#,
     )
+}
+
+fn ensure_session_log_raw_text_column(conn: &Connection) -> rusqlite::Result<()> {
+    match conn.execute("ALTER TABLE session_log_entries ADD COLUMN raw_text TEXT", []) {
+        Ok(_) => Ok(()),
+        Err(rusqlite::Error::SqliteFailure(_, Some(message)))
+            if message.contains("duplicate column name") =>
+        {
+            Ok(())
+        }
+        Err(err) => Err(err),
+    }
 }
 
 fn migrate_legacy_evidence_items(conn: &Connection) -> rusqlite::Result<()> {
@@ -215,6 +230,7 @@ INSERT OR IGNORE INTO session_log_entries (
     scope_id,
     source_kind,
     summary,
+    raw_text,
     jsonl_path,
     line_no,
     promotable,
@@ -229,6 +245,7 @@ SELECT
     scope_id,
     source_kind,
     summary,
+    CASE WHEN source_kind = 'user' THEN summary ELSE NULL END,
     jsonl_path,
     line_no,
     promotable,

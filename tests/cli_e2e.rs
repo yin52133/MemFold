@@ -121,6 +121,43 @@ fn cli_core_flow_runs_through_search_feedback_dream_and_repair() {
     let search_json: Value = serde_json::from_slice(&search.stdout).unwrap();
     assert!(!search_json["results"].as_array().unwrap().is_empty());
 
+    let summarize = Command::new(bin_path())
+        .env("MEMFOLD_ROOT", &root)
+        .args([
+            "summarize-history",
+            "--scope-type",
+            "project",
+            "--scope-id",
+            "memfold",
+            "--session-id",
+            "sess_e2e",
+            "--trigger",
+            "manual",
+        ])
+        .output()
+        .unwrap();
+    assert!(summarize.status.success(), "{summarize:?}");
+    let summarize_json: Value = serde_json::from_slice(&summarize.stdout).unwrap();
+    assert_eq!(summarize_json["updated"], true);
+
+    let trace = Command::new(bin_path())
+        .env("MEMFOLD_ROOT", &root)
+        .args([
+            "trace",
+            "find",
+            "--scope-type",
+            "project",
+            "--scope-id",
+            "memfold",
+            "--query",
+            "中文回答",
+        ])
+        .output()
+        .unwrap();
+    assert!(trace.status.success(), "{trace:?}");
+    let trace_json: Value = serde_json::from_slice(&trace.stdout).unwrap();
+    assert_eq!(trace_json["summary"], "用户明确要求默认用中文回答");
+
     let feedback = Command::new(bin_path())
         .env("MEMFOLD_ROOT", &root)
         .args([

@@ -5,6 +5,7 @@ use memfold::domain::{Mode, ScopeRef, ScopeType, SourceKind};
 use memfold::dreaming::run_dream;
 use memfold::evidence::{write_evidence, WriteEvidenceInput};
 use memfold::feedback::apply_feedback;
+use memfold::history::{SummarizeHistoryInput, summarize_history};
 use memfold::init::initialize_root;
 use rusqlite::{params, Connection};
 use tempfile::TempDir;
@@ -28,6 +29,7 @@ fn dream_promotes_promotable_evidence_and_feedback_rejects_with_tombstone() {
             session_id: "sess_dream".to_string(),
             source_kind: SourceKind::User,
             summary: "用户明确要求默认用中文回答".to_string(),
+            raw_text: None,
             promotable: true,
             origin_mode: Mode::Normal,
             claim_fingerprint: Some("cfp_feedback_language".to_string()),
@@ -111,6 +113,7 @@ fn dream_discards_sterile_evidence() {
             session_id: "sess_sterile".to_string(),
             source_kind: SourceKind::User,
             summary: "sterile memory should not promote".to_string(),
+            raw_text: None,
             promotable: true,
             origin_mode: Mode::Sterile,
             claim_fingerprint: Some("cfp_sterile".to_string()),
@@ -148,6 +151,7 @@ fn feedback_rejects_evidence_only_claim_before_promotion() {
             session_id: "sess_pre".to_string(),
             source_kind: SourceKind::User,
             summary: "先记一条会被否定的偏好".to_string(),
+            raw_text: None,
             promotable: true,
             origin_mode: Mode::Normal,
             claim_fingerprint: Some("cfp_pre".to_string()),
@@ -197,9 +201,19 @@ fn repair_rebuilds_trace_archives_projection() {
             session_id: "sess_repair".to_string(),
             source_kind: SourceKind::User,
             summary: "repair trace archive case".to_string(),
+            raw_text: None,
             promotable: true,
             origin_mode: Mode::Normal,
             claim_fingerprint: Some("cfp_repair".to_string()),
+        },
+    )
+    .unwrap();
+    summarize_history(
+        &config,
+        &SummarizeHistoryInput {
+            scope: scope.clone(),
+            session_id: "sess_repair".to_string(),
+            trigger: "session_end".to_string(),
         },
     )
     .unwrap();

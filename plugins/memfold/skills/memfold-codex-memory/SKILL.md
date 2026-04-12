@@ -30,6 +30,9 @@ Use MemFold at:
 - `memfold-qmd`
   Use when the retrieval sidecar or embedding model needs initialization or synchronization.
 
+- `trace`
+  Use when the user asks whether a remembered claim can be traced back to the stored session log.
+
 ## Minimal rules
 
 - Hooks are the default audit/safety net path and should usually write `promotable=0`.

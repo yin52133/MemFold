@@ -18,12 +18,38 @@ fi
 
 WORKDIR="${PWD}"
 SCOPE_TYPE="${MEMFOLD_SCOPE_TYPE:-project}"
-SCOPE_ID="${MEMFOLD_SCOPE_ID:-$(basename "${WORKDIR}")}"
 MODE="${MEMFOLD_MODE:-normal}"
 INTENT="${MEMFOLD_INTENT:-startup}"
 SESSION_ID="${MEMFOLD_SESSION_ID:-sess_$(date +%s)_$$}"
 SOURCE_KIND="${MEMFOLD_SOURCE_KIND:-decision}"
 MEMFOLD_ROOT="${MEMFOLD_ROOT:-${MEMFOLD_HOME}}"
+
+derive_scope_id() {
+  local git_root remote normalized owner repo
+  git_root="$(git -C "${WORKDIR}" rev-parse --show-toplevel 2>/dev/null || true)"
+  remote="$(git -C "${WORKDIR}" config --get remote.origin.url 2>/dev/null || true)"
+
+  if [[ -n "${remote}" ]]; then
+    normalized="${remote%.git}"
+    repo="$(basename "${normalized}")"
+    owner="$(printf '%s' "${normalized}" | sed -E 's#.*[:/]([^/:]+)/[^/:]+$#\1#')"
+    owner="${owner//[^[:alnum:]]/_}"
+    repo="${repo//[^[:alnum:]]/_}"
+    if [[ -n "${owner}" && -n "${repo}" ]]; then
+      printf '%s\n' "repo_${owner}_${repo}"
+      return
+    fi
+  fi
+
+  if [[ -n "${git_root}" ]]; then
+    basename "${git_root}"
+    return
+  fi
+
+  basename "${WORKDIR}"
+}
+
+SCOPE_ID="${MEMFOLD_SCOPE_ID:-$(derive_scope_id)}"
 
 export MEMFOLD_ROOT MEMFOLD_SCOPE_TYPE="${SCOPE_TYPE}" MEMFOLD_SCOPE_ID="${SCOPE_ID}" \
   MEMFOLD_MODE="${MODE}" MEMFOLD_INTENT="${INTENT}" MEMFOLD_SESSION_ID="${SESSION_ID}"

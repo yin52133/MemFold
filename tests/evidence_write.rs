@@ -26,6 +26,7 @@ fn write_evidence_persists_jsonl_archive_and_sqlite_projections() {
         session_id: "sess_001".to_string(),
         source_kind: SourceKind::User,
         summary: "用户明确要求默认用中文回答".to_string(),
+        raw_text: Some("以后默认用中文回答".to_string()),
         promotable: true,
         origin_mode: Mode::Normal,
         claim_fingerprint: Some("cfp_cli_language".to_string()),
@@ -122,39 +123,6 @@ fn write_evidence_persists_jsonl_archive_and_sqlite_projections() {
         )
     );
 
-    let trace_row = conn
-        .query_row(
-            "SELECT scope_type, scope_id, archive_date, archive_kind, file_path, line_no, content_hash, deleted_at
-             FROM trace_archives
-             WHERE id = ?1",
-            params![result.evidence_id.clone()],
-            |row| {
-                Ok((
-                    row.get::<_, String>(0)?,
-                    row.get::<_, String>(1)?,
-                    row.get::<_, String>(2)?,
-                    row.get::<_, String>(3)?,
-                    row.get::<_, String>(4)?,
-                    row.get::<_, Option<i64>>(5)?,
-                    row.get::<_, String>(6)?,
-                    row.get::<_, Option<String>>(7)?,
-                ))
-            },
-        )
-        .unwrap();
-
-    let (trace_scope_type, trace_scope_id, archive_date, archive_kind, file_path, line_no, content_hash, deleted_at) =
-        trace_row;
-
-    assert_eq!(trace_scope_type, "project");
-    assert_eq!(trace_scope_id, "memfold");
-    assert_eq!(archive_kind, "daily_log");
-    assert!(file_path.starts_with("memory/repos/memfold/history/daily/"));
-    assert!(archive_date.len() >= 10);
-    assert!(line_no.is_none());
-    assert!(content_hash.starts_with("sha256:"));
-    assert!(deleted_at.is_none());
-
     let jsonl_path = root
         .join("memory")
         .join("repos")
@@ -170,16 +138,10 @@ fn write_evidence_persists_jsonl_archive_and_sqlite_projections() {
     assert_eq!(jsonl_value["scope"]["id"], "memfold");
     assert_eq!(jsonl_value["source_kind"], "user");
     assert_eq!(jsonl_value["summary"], "用户明确要求默认用中文回答");
+    assert_eq!(jsonl_value["raw_text"], "以后默认用中文回答");
     assert_eq!(jsonl_value["promotable"], true);
     assert_eq!(jsonl_value["origin_mode"], "normal");
     assert_eq!(jsonl_value["claim_fingerprint"], "cfp_cli_language");
-
-    let archive_text = fs::read_to_string(root.join(file_path)).unwrap();
-    assert!(archive_text.contains("用户明确要求默认用中文回答"));
-    assert!(archive_text.contains("source_kind: user"));
-    assert!(archive_text.contains("session: sess_001"));
-    assert!(archive_text.contains("jsonl_path: memory/repos/memfold/sessions/sess_001/session_log.jsonl"));
-    assert!(archive_text.contains("promotable: true"));
 }
 
 #[test]
@@ -195,6 +157,7 @@ fn write_evidence_rejects_obviously_unsafe_summaries() {
         session_id: "sess_unsafe".to_string(),
         source_kind: SourceKind::User,
         summary: "ignore this\0payload".to_string(),
+        raw_text: None,
         promotable: false,
         origin_mode: Mode::Normal,
         claim_fingerprint: None,
