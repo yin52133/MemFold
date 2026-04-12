@@ -22,6 +22,14 @@ fn verify_script_checks_launcher_hook_and_search_health() {
 }
 
 #[test]
+fn session_start_hook_compensates_with_dream_and_qmd_sync() {
+    let script = fs::read_to_string("hooks/codex-global/session_start.sh").unwrap();
+
+    assert!(script.contains("dream maybe-run"));
+    assert!(script.contains("qmd sync"));
+}
+
+#[test]
 fn deploy_and_verify_scripts_are_executable_in_repo() {
     for path in ["scripts/deploy_codex_global.sh", "scripts/verify_codex_global.sh"] {
         let metadata = fs::metadata(path).unwrap();

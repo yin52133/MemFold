@@ -70,6 +70,8 @@ Codex session start
   -> hook/session_start
   -> memfold init
   -> memfold load
+  -> 启动补偿一次 dream maybe-run
+  -> qmd sync
   -> 注入最小 bundle
 
 工作进行中
@@ -78,7 +80,7 @@ Codex session start
 
 session 结束
   -> hook/session_end 写 session 摘要
-  -> 后台静默触发 dream maybe-run
+  -> 后台静默触发 dream maybe-run（best-effort）
   -> 双门控：距上次 >= 24h && 新结束 session >= 5
 
 dreaming 运行
@@ -224,7 +226,8 @@ cdx-memfold
 
 - deploy 会重建 binary、刷新 launcher / hooks / plugin source、清理 plugin cache、执行 QMD sync，然后跑 verify
 - deploy 只会在 verify 判断为“可修复漂移”时才自动执行 `memfold repair`
-- `cdx-memfold` 会在启动前跑 `session_start`，并在 `EXIT / ctrl+c / TERM` 时 best-effort 跑 `session_end`
+- `cdx-memfold` 会在启动前跑 `session_start`，并在 `EXIT / ctrl+c / TERM / HUP` 时 best-effort 跑 `session_end`
+- 当前启动阶段会补偿执行一次 `dream maybe-run + qmd sync`，用于兜底上一次退出时可能遗漏的整理与索引刷新
 - 仓库内的 `turn_end.sh` 会随 deploy 刷新，但当前每轮自动挂接仍依赖宿主侧接入，不等同于只做 plugin install
 - 只做 plugin 安装不是完整部署
 

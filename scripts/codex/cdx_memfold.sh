@@ -52,6 +52,6 @@ cleanup() {
   "${MEMFOLD_HOME}/hooks/session_end.sh" >/dev/null 2>&1 || true
 }
 
-trap cleanup EXIT INT TERM
+trap cleanup EXIT INT TERM HUP
 
 "${CODEX_BIN}" "$@"

@@ -19,7 +19,7 @@
 
 ## 行为
 
-- `session_start`: `init + load`
+- `session_start`: `init + load + dream maybe-run + qmd sync`
 - `turn_end`: 过滤后记录非 promotable evidence
 - `session_end`: 记录 session 摘要，并在后台静默触发 `dream maybe-run`
 
@@ -31,3 +31,8 @@
 - 新结束 session 数 `>= 5`
 
 不满足时静默返回 `ran=false`，不打断宿主。
+
+这仍然是 best-effort。
+
+- 正常退出时，`session_end` 负责后台 nudging
+- 如果上一次退出没触发成功，下一次 `session_start` 会补做一次 `dream maybe-run`

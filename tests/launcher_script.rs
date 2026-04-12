@@ -6,7 +6,7 @@ fn launcher_script_contains_session_start_and_exit_cleanup() {
     let script = fs::read_to_string("scripts/codex/cdx_memfold.sh").unwrap();
 
     assert!(script.contains("hooks/session_start.sh"));
-    assert!(script.contains("trap cleanup EXIT INT TERM"));
+    assert!(script.contains("trap cleanup EXIT INT TERM HUP"));
     assert!(script.contains("hooks/session_end.sh"));
     assert!(!script.contains("repo_${owner}_${repo}"));
 }

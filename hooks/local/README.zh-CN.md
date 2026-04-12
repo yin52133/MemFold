@@ -28,7 +28,7 @@
 
 ## 设计原则
 
-- start hook 只做 `init + load`
+- start hook 做 `init + load + dream maybe-run + qmd sync`
 - turn/session end hook 只在“有状态变化”且“摘要通过过滤”时落 evidence
 - hook 默认写 `promotable=0`
 - 长期候选仍然由 skill/tool 明确写入

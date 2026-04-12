@@ -50,6 +50,8 @@ cdx-memfold
 ## 说明
 
 - 对当前这套 launcher-based 接入来说，`plugin install` 本身不是完整部署
+- launcher 的退出处理是基于 `EXIT / INT / TERM / HUP` 的 best-effort
+- 启动阶段会补偿执行 `dream maybe-run + qmd sync`，降低退出时遗漏整理/索引刷新的概率
 - 仓库里虽然发货了 `turn_end.sh`，但“每轮自动挂接”仍依赖宿主/plugin 进一步接入，不等同于只安装 plugin
 
 ## 回滚

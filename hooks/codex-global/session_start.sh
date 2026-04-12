@@ -10,3 +10,11 @@ run_memfold load \
   --scope-id "${MEMFOLD_SCOPE_ID}" \
   --intent "${MEMFOLD_INTENT}" \
   --budget "${MEMFOLD_BUDGET:-400}"
+
+run_memfold dream maybe-run \
+  --scope-type "${MEMFOLD_SCOPE_TYPE}" \
+  --scope-id "${MEMFOLD_SCOPE_ID}" >/dev/null
+
+run_memfold qmd sync \
+  --scope-type "${MEMFOLD_SCOPE_TYPE}" \
+  --scope-id "${MEMFOLD_SCOPE_ID}" >/dev/null

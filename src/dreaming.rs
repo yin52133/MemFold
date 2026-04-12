@@ -10,6 +10,7 @@ use crate::boot::compile_scope_bundle;
 use crate::config::MemfoldConfig;
 use crate::domain::ScopeRef;
 use crate::error::{Error, Result};
+use crate::qmd_adapter::sync_scope;
 use crate::state::schema;
 use crate::timestamps::{now_rfc3339, parse_timestamp};
 
@@ -119,6 +120,7 @@ pub fn run_dream(config: &MemfoldConfig, scope: &ScopeRef, trigger: &str) -> Res
     }
 
     compile_scope_bundle(config, scope, 900)?;
+    sync_scope(config, scope)?;
 
     conn.execute(
         "UPDATE dream_jobs

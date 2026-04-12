@@ -50,6 +50,8 @@ cdx-memfold
 ## Notes
 
 - `plugin install` alone is not the full deployment path for the current launcher-based integration
+- launcher exit handling is best-effort on `EXIT / INT / TERM / HUP`
+- startup compensates with `dream maybe-run` and `qmd sync` to reduce missed exit work
 - the repo ships `turn_end.sh`, but per-turn host attachment still depends on host/plugin integration beyond the launcher
 
 ## Rollback

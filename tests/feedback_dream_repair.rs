@@ -7,6 +7,7 @@ use memfold::evidence::{write_evidence, WriteEvidenceInput};
 use memfold::feedback::apply_feedback;
 use memfold::history::{SummarizeHistoryInput, summarize_history};
 use memfold::init::initialize_root;
+use memfold::qmd_adapter::load_scope_records;
 use rusqlite::{params, Connection};
 use tempfile::TempDir;
 
@@ -41,6 +42,14 @@ fn dream_promotes_promotable_evidence_and_feedback_rejects_with_tombstone() {
     let first_run = run_dream(&config, &scope, "manual").unwrap();
     assert_eq!(first_run.promoted, 1);
     assert_eq!(first_run.discarded, 0);
+
+    let qmd_records = load_scope_records(&config, &scope).unwrap();
+    assert!(
+        qmd_records.iter().any(|record| {
+            record.source_type == "stable" && record.summary.contains("默认用中文回答")
+        }),
+        "dream should refresh qmd after promoting stable memory"
+    );
 
     let conn = Connection::open(config.state_db_path()).unwrap();
     let status: String = conn
