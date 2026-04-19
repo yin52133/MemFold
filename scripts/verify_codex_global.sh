@@ -22,6 +22,13 @@ VERIFY_MEMORY_SUMMARY="用户要求默认中文"
 VERIFY_MEMORY_RAW_TEXT="以后默认用中文回答，而且直接指出我哪里说错了。"
 VERIFY_MEMORY_QUERY="默认用中文回答而且直接指出我哪里说错了"
 VERIFY_MEMORY_CLAIM="cfp_verify_raw_trace"
+if [[ "${VERIFY_SCOPE_TYPE}" == "project" ]]; then
+  VERIFY_SCOPE_DIR_ID="$(printf '%s' "${VERIFY_SCOPE_ID}" | tr '[:upper:]' '[:lower:]')"
+  VERIFY_SCOPE_FRAGMENT="repos/${VERIFY_SCOPE_DIR_ID}"
+else
+  VERIFY_SCOPE_FRAGMENT="user"
+fi
+VERIFY_SESSION_ROOT="${MEMFOLD_HOME}/memory/${VERIFY_SCOPE_FRAGMENT}/sessions"
 
 fatal() {
   echo "[verify] fatal: $*" >&2
@@ -196,6 +203,8 @@ if ! "${MEMFOLD_BIN}" --root "${MEMFOLD_HOME}" feedback \
   --session-id "${MEMORY_SESSION_ID}" >/tmp/memfold_verify_feedback.json; then
   repair_needed "feedback cleanup failed for verify memory"
 fi
+
+rm -rf "${VERIFY_SESSION_ROOT}/${LAUNCHER_SESSION_ID}" "${VERIFY_SESSION_ROOT}/${HOOK_SESSION_ID}"
 
 if ! "${MEMFOLD_BIN}" --root "${MEMFOLD_HOME}" repair \
   --scope-type "${VERIFY_SCOPE_TYPE}" \
