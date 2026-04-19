@@ -15,6 +15,7 @@
 - [x] Wave 4 完成：feedback/dream/repair
 - [x] Wave 5 完成：codex integration + e2e
 - [x] Wave 6 完成：experiments
+- [x] Wave 7 完成：post-v1 hardening
 - [x] 完整 V1 E2E 验收通过
 
 ## 2. 波次状态总览
@@ -27,6 +28,7 @@
 | 4 | feedback/dream/repair | `done` | controller | 2026-04-12 | `cargo test --test feedback_dream_repair --test cli_e2e` + `cargo test` 通过 | 无 |
 | 5 | codex/e2e | `done` | controller | 2026-04-12 | `cargo test --test cli_wave2 --test cli_e2e` + `cargo test` 通过 | 无 |
 | 6 | experiments | `done` | controller | 2026-04-12 | `cargo test --test experiments_run` + `cargo test` 通过 | 无 |
+| 7 | post-v1 hardening | `done` | controller | 2026-04-19 | 多轮 `cargo test` + 多次 `deploy_codex_global.sh`/`verify_codex_global.sh` 真实验证通过 | 无 |
 
 ## 3. 集成关口
 
