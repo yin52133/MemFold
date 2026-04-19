@@ -27,6 +27,13 @@
 - verify 产生的 smoke memory / smoke session / smoke history / smoke feedback 审计残留已被清到可控范围
 - 重复 deploy/verify 不再持续增长 verify raw-trace evidence、verify session 目录或 verify cleanup feedback rows
 
+最新实测快照：
+
+- startup load item count: `1`
+- verify session rows / verify session dirs: `0 / 0`
+- `feedback_events where reason='verify cleanup'`: `0`
+- `tombstones where claim_fingerprint='cfp_verify_raw_trace'`: `1`
+
 ## 4. 当前结论
 
 - MemFold 已经从“概念可跑”进入“真实部署可用”
