@@ -149,12 +149,10 @@ fn build_stable_records(config: &MemfoldConfig, scope: &ScopeRef) -> Result<Vec<
             if item.status != "stable" {
                 continue;
             }
-            if item
-                .claim_fingerprint
-                .as_deref()
-                .is_some_and(|fingerprint| tombstone_exists(&conn, scope, fingerprint).unwrap_or(false))
-            {
-                continue;
+            if let Some(fingerprint) = item.claim_fingerprint.as_deref() {
+                if tombstone_exists(&conn, scope, fingerprint)? {
+                    continue;
+                }
             }
 
             let (doc_id, updated_at) = conn
@@ -240,12 +238,12 @@ fn build_evidence_records(config: &MemfoldConfig, scope: &ScopeRef) -> Result<Ve
             if is_memory_noise(&summary) {
                 continue;
             }
-            if claim_fingerprint
-                .as_deref()
-                .is_some_and(|fingerprint| tombstone_exists(&conn, scope, fingerprint).unwrap_or(false))
-            {
-                continue;
+            if let Some(fingerprint) = claim_fingerprint.as_deref() {
+                if tombstone_exists(&conn, scope, fingerprint)? {
+                    continue;
+                }
             }
+
             records.push(QmdRecord {
                 doc_id: value["evidence_id"].as_str().unwrap_or("").to_string(),
                 source_type: "session_log".to_string(),
