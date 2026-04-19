@@ -46,7 +46,7 @@ cdx-memfold
 - verify 会检查全局 `turn_end` hook 是否能落盘
 - verify 会检查 `qmd sync` 和一次真实 `search` 回路
 - verify 还会检查一次 raw-text memory 回路：`write-evidence -> dream run -> search`
-- verify 会在最后清理自己的 smoke memory 和 verify session 目录，再做最终 repair
+- verify 会在最后清理自己的 smoke memory、verify session 目录，以及 verify history 残留，再做最终 repair
 - deploy 会先跑一次 `memfold repair` 再进入 sync/verify；如果 verify 仍判断为“可修复漂移”，还会再补一次 repair
 
 ## 说明

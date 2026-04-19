@@ -76,6 +76,7 @@ memfold --root ~/.codex/memfold search \
 embedding 可用时：
 
 - 使用 embedding + 词法混合评分
+- 原始 query 或归一化 query 的精确命中，会优先于泛化 token 重叠结果
 - 有 `raw_text` 的 `session_log` 会参与检索
 - `stable / history / session_log` 的重复摘要会去重
 - 如果 raw-text 命中的 claim 已经晋升为 `stable`，优先返回 `stable`
