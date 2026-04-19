@@ -9,6 +9,7 @@ use crate::boot::compile_scope_bundle;
 use crate::config::MemfoldConfig;
 use crate::domain::ScopeRef;
 use crate::error::Result;
+use crate::qmd_adapter::sync_scope;
 use crate::state::schema;
 use crate::timestamps::now_rfc3339;
 
@@ -131,6 +132,7 @@ pub fn apply_feedback(
     }
 
     compile_scope_bundle(config, scope, 900)?;
+    sync_scope(config, scope)?;
 
     Ok(FeedbackResult {
         updated: !targets.is_empty() || !evidence_targets.is_empty(),

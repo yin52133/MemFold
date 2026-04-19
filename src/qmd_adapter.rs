@@ -149,6 +149,13 @@ fn build_stable_records(config: &MemfoldConfig, scope: &ScopeRef) -> Result<Vec<
             if item.status != "stable" {
                 continue;
             }
+            if item
+                .claim_fingerprint
+                .as_deref()
+                .is_some_and(|fingerprint| tombstone_exists(&conn, scope, fingerprint).unwrap_or(false))
+            {
+                continue;
+            }
 
             let (doc_id, updated_at) = conn
                 .query_row(
@@ -192,6 +199,7 @@ fn build_stable_records(config: &MemfoldConfig, scope: &ScopeRef) -> Result<Vec<
 }
 
 fn build_evidence_records(config: &MemfoldConfig, scope: &ScopeRef) -> Result<Vec<QmdRecord>> {
+    let conn = open_connection(config)?;
     let sessions_dir = config
         .project_root(scope)
         .join("sessions");
@@ -230,6 +238,12 @@ fn build_evidence_records(config: &MemfoldConfig, scope: &ScopeRef) -> Result<Ve
             let claim_fingerprint =
                 value["claim_fingerprint"].as_str().map(|value| value.to_string());
             if is_memory_noise(&summary) {
+                continue;
+            }
+            if claim_fingerprint
+                .as_deref()
+                .is_some_and(|fingerprint| tombstone_exists(&conn, scope, fingerprint).unwrap_or(false))
+            {
                 continue;
             }
             records.push(QmdRecord {
@@ -337,6 +351,20 @@ fn open_connection(config: &MemfoldConfig) -> Result<Connection> {
     let conn = Connection::open(db_path)?;
     schema::apply_schema(&conn)?;
     Ok(conn)
+}
+
+fn tombstone_exists(conn: &Connection, scope: &ScopeRef, claim_fingerprint: &str) -> Result<bool> {
+    let exists = conn
+        .query_row(
+            "SELECT EXISTS(
+                SELECT 1 FROM tombstones
+                WHERE scope_type = ?1 AND scope_id = ?2 AND claim_fingerprint = ?3
+            )",
+            params![scope.scope_type.as_str(), &scope.scope_id, claim_fingerprint],
+            |row| row.get::<_, i64>(0),
+        )?
+        != 0;
+    Ok(exists)
 }
 
 fn make_relative_path(config: &MemfoldConfig, absolute: &Path) -> String {

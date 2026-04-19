@@ -95,6 +95,14 @@ fn dream_promotes_promotable_evidence_and_feedback_rejects_with_tombstone() {
         .unwrap();
     assert_eq!(status, "rejected");
 
+    let qmd_records_after_feedback = load_scope_records(&config, &scope).unwrap();
+    assert!(
+        !qmd_records_after_feedback.iter().any(|record| {
+            record.claim_fingerprint.as_deref() == Some("cfp_feedback_language")
+        }),
+        "feedback should refresh qmd so rejected claims disappear from sidecar records"
+    );
+
     let tombstone_count: i64 = conn
         .query_row(
             "SELECT COUNT(*) FROM tombstones WHERE claim_fingerprint = ?1",
