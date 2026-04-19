@@ -300,3 +300,32 @@ revision: 1\n\n\
         .unwrap();
     assert_eq!(count, 0);
 }
+
+#[test]
+fn repair_prunes_feedback_events_for_missing_targets() {
+    let tmp = TempDir::new().unwrap();
+    let root = memfold_root(&tmp);
+    let config = MemfoldConfig::default_for_root(root.clone());
+    initialize_root(&config).unwrap();
+
+    let conn = Connection::open(config.state_db_path()).unwrap();
+    conn.execute(
+        "INSERT INTO feedback_events (id, target_id, target_type, verdict, reason, session_id, created_at)
+         VALUES ('fb_orphan_mem', 'missing_mem', 'memory_item', 'rejected', 'orphan', 'sess_orphan', '2026-04-19T00:00:00Z')",
+        [],
+    )
+    .unwrap();
+    conn.execute(
+        "INSERT INTO feedback_events (id, target_id, target_type, verdict, reason, session_id, created_at)
+         VALUES ('fb_orphan_ev', 'missing_ev', 'evidence_item', 'rejected', 'orphan', 'sess_orphan', '2026-04-19T00:00:00Z')",
+        [],
+    )
+    .unwrap();
+
+    run_repair(&config, None).unwrap();
+
+    let count: i64 = conn
+        .query_row("SELECT COUNT(*) FROM feedback_events", [], |row| row.get(0))
+        .unwrap();
+    assert_eq!(count, 0);
+}

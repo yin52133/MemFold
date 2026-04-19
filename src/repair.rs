@@ -42,6 +42,8 @@ pub fn run_repair(config: &MemfoldConfig, scope: Option<&ScopeRef>) -> Result<Re
         sync_scope(config, &scope)?;
     }
 
+    prune_orphan_feedback_events(&conn)?;
+
     Ok(RepairResult {
         repaired: true,
         rebuilt_records,
@@ -598,6 +600,22 @@ fn stable_block_tombstoned(conn: &Connection, scope: &ScopeRef, block: &str) -> 
         )?
         != 0;
     Ok(exists)
+}
+
+fn prune_orphan_feedback_events(conn: &Connection) -> Result<()> {
+    conn.execute(
+        "DELETE FROM feedback_events
+         WHERE target_type = 'memory_item'
+           AND target_id NOT IN (SELECT id FROM memory_items)",
+        [],
+    )?;
+    conn.execute(
+        "DELETE FROM feedback_events
+         WHERE target_type = 'evidence_item'
+           AND target_id NOT IN (SELECT id FROM session_log_entries)",
+        [],
+    )?;
+    Ok(())
 }
 
 fn clean_session_logs(config: &MemfoldConfig, scope: &ScopeRef) -> Result<()> {
