@@ -5,7 +5,7 @@ use memfold::domain::{Intent, ScopeRef, ScopeType, SourceKind, Mode};
 use memfold::evidence::{write_evidence, WriteEvidenceInput};
 use memfold::history::{SummarizeHistoryInput, summarize_history};
 use memfold::init::initialize_root;
-use memfold::qmd_adapter::{load_scope_records, sync_scope};
+use memfold::qmd_adapter::{embed_query, init_model, load_scope_records, sync_scope, QmdRecord};
 use memfold::retrieval::{search_memories, SearchResponse};
 use memfold::state::StateStore;
 use rusqlite::{params, Connection};
@@ -298,4 +298,116 @@ fn sync_scope_skips_noisy_session_and_history_records() {
             .iter()
             .any(|record| record.summary.contains("session exited via launcher trap"))
     );
+}
+
+#[test]
+fn search_memories_rejects_moderate_semantic_match_without_lexical_overlap() {
+    let (_tmp, config) = init_config();
+    let scope = ScopeRef::new(ScopeType::Project, "memfold").unwrap();
+    init_model(&config, "mock-test").unwrap();
+
+    let query = "launcher trap";
+    let query_embedding = embed_query(&config, query).unwrap().unwrap();
+    let doc_embedding = embedding_with_target_cosine(&query_embedding, 0.71);
+    write_qmd_records(
+        &config,
+        &scope,
+        "stable",
+        &[QmdRecord {
+            doc_id: "mem_false_positive".to_string(),
+            source_type: "stable".to_string(),
+            relative_path: "memory/repos/memfold/stable/rules.md".to_string(),
+            pointer: "memory/repos/memfold/stable/rules.md#project.memory.clean_truth".to_string(),
+            summary: "用户要求默认中文".to_string(),
+            status: "stable".to_string(),
+            scope_type: "project".to_string(),
+            scope_id: "memfold".to_string(),
+            updated_at: "2026-04-19T12:00:00Z".to_string(),
+            embedding: Some(doc_embedding),
+        }],
+    );
+
+    let result = search_memories(&config, &scope, Intent::Continue, query, 50).unwrap();
+    assert!(result.results.is_empty());
+}
+
+#[test]
+fn search_memories_keeps_high_confidence_semantic_match_without_lexical_overlap() {
+    let (_tmp, config) = init_config();
+    let scope = ScopeRef::new(ScopeType::Project, "memfold").unwrap();
+    init_model(&config, "mock-test").unwrap();
+
+    let query = "launcher trap";
+    let query_embedding = embed_query(&config, query).unwrap().unwrap();
+    let doc_embedding = embedding_with_target_cosine(&query_embedding, 0.97);
+    write_qmd_records(
+        &config,
+        &scope,
+        "stable",
+        &[QmdRecord {
+            doc_id: "mem_true_positive".to_string(),
+            source_type: "stable".to_string(),
+            relative_path: "memory/repos/memfold/stable/rules.md".to_string(),
+            pointer: "memory/repos/memfold/stable/rules.md#project.memory.semantic".to_string(),
+            summary: "launch lifecycle shutdown signal handling".to_string(),
+            status: "stable".to_string(),
+            scope_type: "project".to_string(),
+            scope_id: "memfold".to_string(),
+            updated_at: "2026-04-19T12:00:00Z".to_string(),
+            embedding: Some(doc_embedding),
+        }],
+    );
+
+    let result = search_memories(&config, &scope, Intent::Continue, query, 50).unwrap();
+    assert_eq!(result.results.len(), 1);
+    assert_eq!(result.results[0].doc_id, "mem_true_positive");
+}
+
+fn write_qmd_records(
+    config: &MemfoldConfig,
+    scope: &ScopeRef,
+    source_type: &str,
+    records: &[QmdRecord],
+) {
+    let collection_dir = config
+        .root
+        .join("qmd")
+        .join("collections")
+        .join("repos")
+        .join(&scope.scope_id);
+    fs::create_dir_all(&collection_dir).unwrap();
+    let path = collection_dir.join(format!("{source_type}.jsonl"));
+    let mut lines = Vec::new();
+    for record in records {
+        lines.push(serde_json::to_string(record).unwrap());
+    }
+    fs::write(path, format!("{}\n", lines.join("\n"))).unwrap();
+}
+
+fn embedding_with_target_cosine(query: &[f32], cosine: f32) -> Vec<f32> {
+    let query_norm = normalize(query);
+    let mut basis = vec![0.0f32; query.len()];
+    basis[0] = 1.0;
+    let projection = dot(&basis, &query_norm);
+    let orthogonal = basis
+        .iter()
+        .zip(query_norm.iter())
+        .map(|(base, query_value)| base - projection * query_value)
+        .collect::<Vec<_>>();
+    let orthogonal_norm = normalize(&orthogonal);
+    let other_weight = (1.0 - cosine * cosine).sqrt();
+    query_norm
+        .iter()
+        .zip(orthogonal_norm.iter())
+        .map(|(q, o)| cosine * q + other_weight * o)
+        .collect()
+}
+
+fn normalize(values: &[f32]) -> Vec<f32> {
+    let norm = values.iter().map(|value| value * value).sum::<f32>().sqrt();
+    values.iter().map(|value| value / norm).collect()
+}
+
+fn dot(left: &[f32], right: &[f32]) -> f32 {
+    left.iter().zip(right.iter()).map(|(l, r)| l * r).sum()
 }

@@ -94,7 +94,13 @@ fn score_record(record: &QmdRecord, query_tokens: &[String], query_embedding: Op
     let semantic = match (&record.embedding, query_embedding) {
         (Some(doc), Some(query)) => {
             let cosine = cosine_similarity(doc, query);
-            if cosine > 0.70 {
+            if lexical == 0 {
+                if cosine > 0.95 {
+                    2
+                } else {
+                    0
+                }
+            } else if cosine > 0.70 {
                 3
             } else if cosine > 0.50 {
                 2
