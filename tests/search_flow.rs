@@ -246,3 +246,56 @@ fn search_memories_auto_syncs_missing_qmd_and_orders_by_intent() {
         .join("stable.jsonl");
     assert!(sidecar.exists());
 }
+
+#[test]
+fn sync_scope_skips_noisy_session_and_history_records() {
+    let (_tmp, config) = init_config();
+    let scope = ScopeRef::new(ScopeType::Project, "memfold").unwrap();
+    let session_dir = config
+        .root
+        .join("memory")
+        .join("repos")
+        .join("memfold")
+        .join("sessions")
+        .join("sess_noise");
+    fs::create_dir_all(&session_dir).unwrap();
+    fs::write(
+        session_dir.join("session_log.jsonl"),
+        concat!(
+            "{\"evidence_id\":\"ev_noise\",\"scope\":{\"type\":\"project\",\"id\":\"memfold\"},\"session_id\":\"sess_noise\",\"source_kind\":\"decision\",\"summary\":\"session exited via launcher trap\",\"raw_text\":null,\"promotable\":false,\"origin_mode\":\"normal\",\"claim_fingerprint\":null,\"created_at\":\"2026-04-12T18:45:56Z\"}\n",
+            "{\"evidence_id\":\"ev_keep\",\"scope\":{\"type\":\"project\",\"id\":\"memfold\"},\"session_id\":\"sess_noise\",\"source_kind\":\"user\",\"summary\":\"用户要求默认中文\",\"raw_text\":\"以后默认用中文回答\",\"promotable\":true,\"origin_mode\":\"normal\",\"claim_fingerprint\":\"cfp_keep\",\"created_at\":\"2026-04-12T18:46:00Z\"}\n"
+        ),
+    )
+    .unwrap();
+
+    let history_dir = config
+        .root
+        .join("memory")
+        .join("repos")
+        .join("memfold")
+        .join("history")
+        .join("daily");
+    fs::create_dir_all(&history_dir).unwrap();
+    fs::write(
+        history_dir.join("2026-04-12.md"),
+        concat!(
+            "<!-- session: sess_noise_1 | summary_id: hs_noise -->\n",
+            "## 2026-04-12T18:45:56Z [session_end] session exited via launcher trap\n",
+            "- [decision] session exited via launcher trap\n\n",
+            "<!-- session: sess_noise_2 | summary_id: hs_keep -->\n",
+            "## 2026-04-12T18:46:00Z [manual] 用户要求默认中文\n",
+            "- [user] 用户要求默认中文\n"
+        ),
+    )
+    .unwrap();
+
+    sync_scope(&config, &scope).unwrap();
+    let records = load_scope_records(&config, &scope).unwrap();
+
+    assert!(records.iter().any(|record| record.summary.contains("用户要求默认中文")));
+    assert!(
+        !records
+            .iter()
+            .any(|record| record.summary.contains("session exited via launcher trap"))
+    );
+}

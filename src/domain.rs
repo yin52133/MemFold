@@ -151,7 +151,7 @@ pub struct ScopeRef {
 
 impl ScopeRef {
     pub fn new(scope_type: ScopeType, scope_id: impl Into<String>) -> Result<Self> {
-        let scope_id = scope_id.into();
+        let scope_id = canonical_scope_id(scope_type, scope_id.into());
         if scope_id.trim().is_empty()
             || scope_id == "."
             || scope_id == ".."
@@ -175,5 +175,12 @@ impl ScopeRef {
             ScopeType::User => "user".to_string(),
             ScopeType::Project => format!("repos/{}", self.scope_id),
         }
+    }
+}
+
+fn canonical_scope_id(scope_type: ScopeType, scope_id: String) -> String {
+    match scope_type {
+        ScopeType::User => scope_id,
+        ScopeType::Project => scope_id.to_ascii_lowercase(),
     }
 }

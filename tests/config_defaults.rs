@@ -22,6 +22,15 @@ fn scope_ref_formats_scope_key_and_dir_fragment() {
 }
 
 #[test]
+fn project_scope_ids_are_canonicalized_to_lowercase() {
+    let project = ScopeRef::new(ScopeType::Project, "MemFold").unwrap();
+
+    assert_eq!(project.scope_id, "memfold");
+    assert_eq!(project.scope_key(), "project:memfold");
+    assert_eq!(project.scope_dir_fragment(), "repos/memfold");
+}
+
+#[test]
 fn default_config_resolves_expected_paths_and_parent_dirs() {
     let tmp = TempDir::new().unwrap();
     let config = MemfoldConfig::default_for_root(tmp.path().to_path_buf());

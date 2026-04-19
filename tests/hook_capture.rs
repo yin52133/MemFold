@@ -100,7 +100,56 @@ fn hook_capture_records_meaningful_event_once() {
             "SELECT COUNT(*) FROM session_log_entries WHERE session_id = ?1 AND summary = ?2",
             params!["sess_hook", "完成 Wave 2 CLI 接线"],
             |row| row.get(0),
-        )
-        .unwrap();
+    )
+    .unwrap();
     assert_eq!(count, 1);
+}
+
+#[test]
+fn hook_capture_skips_launcher_and_verify_noise() {
+    let tmp = TempDir::new().unwrap();
+    let root = memfold_root(&tmp);
+    let config = MemfoldConfig::default_for_root(root.clone());
+    initialize_root(&config).unwrap();
+    let scope = ScopeRef::new(ScopeType::Project, "memfold").unwrap();
+
+    let launcher = capture_event(
+        &config,
+        &HookCaptureInput {
+            event: HookEvent::SessionEnd,
+            scope: scope.clone(),
+            session_id: "sess_launcher".to_string(),
+            source_kind: SourceKind::Decision,
+            summary: "session exited via launcher trap".to_string(),
+            origin_mode: Mode::Normal,
+            state_changed: true,
+            promotable: false,
+        },
+    )
+    .unwrap();
+    assert!(!launcher.recorded);
+    assert_eq!(launcher.reason, "filtered_noise");
+
+    let verify = capture_event(
+        &config,
+        &HookCaptureInput {
+            event: HookEvent::TurnEnd,
+            scope,
+            session_id: "sess_verify".to_string(),
+            source_kind: SourceKind::Decision,
+            summary: "MemFold verify turn verify-token-123".to_string(),
+            origin_mode: Mode::Normal,
+            state_changed: true,
+            promotable: false,
+        },
+    )
+    .unwrap();
+    assert!(!verify.recorded);
+    assert_eq!(verify.reason, "filtered_noise");
+
+    let conn = Connection::open(root.join("state").join("memfold.db")).unwrap();
+    let count: i64 = conn
+        .query_row("SELECT COUNT(*) FROM session_log_entries", [], |row| row.get(0))
+        .unwrap();
+    assert_eq!(count, 0);
 }
