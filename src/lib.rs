@@ -10,6 +10,7 @@ pub mod hooks;
 pub mod init;
 pub mod memory_fs;
 pub mod mutations;
+pub mod noise;
 pub mod qmd_adapter;
 pub mod repair;
 pub mod retrieval;

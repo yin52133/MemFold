@@ -5,6 +5,7 @@ use crate::config::MemfoldConfig;
 use crate::domain::{Mode, ScopeRef, SourceKind};
 use crate::error::Result;
 use crate::evidence::{write_evidence, WriteEvidenceInput};
+use crate::noise::{is_memory_noise, normalize_summary as normalize_memory_summary};
 use crate::state::schema;
 use crate::timestamps::now_rfc3339;
 
@@ -84,12 +85,16 @@ pub fn capture_event(config: &MemfoldConfig, input: &HookCaptureInput) -> Result
 }
 
 fn normalize_summary(summary: &str) -> String {
-    summary.split_whitespace().collect::<Vec<_>>().join(" ").trim().to_string()
+    normalize_memory_summary(summary)
 }
 
 fn is_noise(summary: &str, event: &HookEvent, source_kind: SourceKind) -> bool {
     let lowered = summary.to_lowercase();
     if lowered.len() < 8 {
+        return true;
+    }
+
+    if is_memory_noise(summary) {
         return true;
     }
 

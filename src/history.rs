@@ -9,6 +9,7 @@ use crate::config::MemfoldConfig;
 use crate::domain::ScopeRef;
 use crate::error::{Error, Result};
 use crate::memory_fs::paths::{archive_daily_path, session_evidence_path};
+use crate::noise::is_memory_noise;
 use crate::runtime_log::runtime_log_path;
 use crate::state::schema;
 use crate::timestamps::now_rfc3339;
@@ -153,7 +154,7 @@ fn render_history_block(
     for entry in entries {
         let text = &entry.summary;
         let text = text.trim();
-        if !text.is_empty() {
+        if !text.is_empty() && !is_memory_noise(text) {
             key_points.insert(format!("[{}] {}", entry.source_kind, text));
         }
     }
@@ -163,9 +164,13 @@ fn render_history_block(
         .iter()
         .find_map(|entry| {
             let text = entry.summary.trim();
-            (!text.is_empty()).then(|| text.to_string())
+            (!text.is_empty() && !is_memory_noise(text)).then(|| text.to_string())
         })
         .unwrap_or_else(|| "session summary".to_string());
+
+    if key_points.is_empty() && runtime_failures.is_empty() {
+        return Err(Error::HistorySummaryFailed("no meaningful entries".to_string()));
+    }
 
     let mut block = String::new();
     block.push_str(&format!("<!-- session: {} | summary_id: {} -->\n", input.session_id, summary_id));

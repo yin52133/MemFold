@@ -9,6 +9,7 @@ use sha2::{Digest, Sha256};
 use crate::config::MemfoldConfig;
 use crate::domain::ScopeRef;
 use crate::error::Result;
+use crate::noise::is_memory_noise;
 use crate::state::schema;
 use crate::timestamps::now_rfc3339;
 
@@ -218,12 +219,16 @@ fn build_evidence_records(config: &MemfoldConfig, scope: &ScopeRef) -> Result<Ve
             } else {
                 "recorded"
             };
+            let summary = value["summary"].as_str().unwrap_or("").to_string();
+            if is_memory_noise(&summary) {
+                continue;
+            }
             records.push(QmdRecord {
                 doc_id: value["evidence_id"].as_str().unwrap_or("").to_string(),
                 source_type: "session_log".to_string(),
                 relative_path: relative_path.clone(),
                 pointer: format!("{relative_path}#{}", idx + 1),
-                summary: value["summary"].as_str().unwrap_or("").to_string(),
+                summary,
                 status: status.to_string(),
                 scope_type: scope.scope_type.as_str().to_string(),
                 scope_id: scope.scope_id.clone(),
@@ -259,6 +264,9 @@ fn build_archive_records(config: &MemfoldConfig, scope: &ScopeRef) -> Result<Vec
     for file in files {
         let relative_path = make_relative_path(config, &file);
         for (idx, entry) in parse_archive_entries(&file)?.into_iter().enumerate() {
+            if is_memory_noise(&entry.summary) {
+                continue;
+            }
             records.push(QmdRecord {
                 doc_id: format!("archive:{}:{}", scope.scope_key(), idx + 1),
                 source_type: "history".to_string(),
