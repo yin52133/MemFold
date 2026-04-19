@@ -254,3 +254,49 @@ fn repair_merges_alias_history_blocks_without_duplicate_summary_ids() {
         .unwrap();
     assert_eq!(count, 1);
 }
+
+#[test]
+fn repair_does_not_resurrect_tombstoned_stable_memory() {
+    let tmp = TempDir::new().unwrap();
+    let root = memfold_root(&tmp);
+    let config = MemfoldConfig::default_for_root(root.clone());
+    initialize_root(&config).unwrap();
+
+    let stable_dir = root
+        .join("memory")
+        .join("repos")
+        .join("memfold")
+        .join("stable");
+    fs::create_dir_all(&stable_dir).unwrap();
+    fs::write(
+        stable_dir.join("rules.md"),
+        "## item_key: project.memory.verify_raw_t\n\
+title: Verify raw trace\n\
+status: stable\n\
+autoload: boot_project\n\
+claim_fingerprint: cfp_verify_raw_trace\n\
+content_hash: sha256:verify\n\
+revision: 1\n\n\
+用户要求默认中文\n",
+    )
+    .unwrap();
+
+    let conn = Connection::open(config.state_db_path()).unwrap();
+    conn.execute(
+        "INSERT INTO tombstones (id, claim_fingerprint, scope_type, scope_id, reason, source_item_id, created_at)
+         VALUES ('ts_verify', 'cfp_verify_raw_trace', 'project', 'memfold', 'verify cleanup', NULL, '2026-04-19T00:00:00Z')",
+        [],
+    )
+    .unwrap();
+
+    run_repair(&config, None).unwrap();
+
+    let count: i64 = conn
+        .query_row(
+            "SELECT COUNT(*) FROM memory_items WHERE claim_fingerprint = 'cfp_verify_raw_trace' AND deleted_at IS NULL",
+            [],
+            |row| row.get(0),
+        )
+        .unwrap();
+    assert_eq!(count, 0);
+}

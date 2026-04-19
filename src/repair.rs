@@ -171,8 +171,55 @@ fn clean_dirty_memory_content(config: &MemfoldConfig, scope: Option<&ScopeRef>) 
     };
 
     for scope in project_scopes {
+        clean_stable_files(config, &scope)?;
         clean_session_logs(config, &scope)?;
         clean_history_files(config, &scope)?;
+    }
+
+    Ok(())
+}
+
+fn clean_stable_files(config: &MemfoldConfig, scope: &ScopeRef) -> Result<()> {
+    let stable_dir = config.project_root(scope).join("stable");
+    if !stable_dir.exists() {
+        return Ok(());
+    }
+
+    let conn = open_connection(config)?;
+    let mut files = Vec::new();
+    for entry in fs::read_dir(&stable_dir)? {
+        let path = entry?.path();
+        if path.extension().and_then(|ext| ext.to_str()) == Some("md") {
+            files.push(path);
+        }
+    }
+    files.sort();
+
+    for path in files {
+        let contents = fs::read_to_string(&path)?;
+        let mut kept_blocks = Vec::new();
+        let mut current_block = Vec::new();
+        for line in contents.lines() {
+            if line.starts_with("## item_key:") && !current_block.is_empty() {
+                if !stable_block_tombstoned(&conn, scope, &current_block.join("\n"))? {
+                    kept_blocks.push(current_block.join("\n"));
+                }
+                current_block.clear();
+            }
+            current_block.push(line.to_string());
+        }
+        if !current_block.is_empty()
+            && !stable_block_tombstoned(&conn, scope, &current_block.join("\n"))?
+        {
+            kept_blocks.push(current_block.join("\n"));
+        }
+
+        if kept_blocks.is_empty() {
+            fs::remove_file(&path)?;
+            continue;
+        }
+
+        fs::write(&path, format!("{}\n", kept_blocks.join("\n\n")))?;
     }
 
     Ok(())
@@ -529,6 +576,28 @@ fn stable_item_key(block: &str) -> Option<String> {
     block
         .lines()
         .find_map(|line| line.strip_prefix("## item_key:").map(|value| value.trim().to_string()))
+}
+
+fn stable_block_tombstoned(conn: &Connection, scope: &ScopeRef, block: &str) -> Result<bool> {
+    let claim_fingerprint = block.lines().find_map(|line| {
+        line.strip_prefix("claim_fingerprint:")
+            .map(|value| value.trim().to_string())
+    });
+    let Some(claim_fingerprint) = claim_fingerprint else {
+        return Ok(false);
+    };
+
+    let exists = conn
+        .query_row(
+            "SELECT EXISTS(
+                SELECT 1 FROM tombstones
+                WHERE scope_type = ?1 AND scope_id = ?2 AND claim_fingerprint = ?3
+            )",
+            params![scope.scope_type.as_str(), &scope.scope_id, claim_fingerprint],
+            |row| row.get::<_, i64>(0),
+        )?
+        != 0;
+    Ok(exists)
 }
 
 fn clean_session_logs(config: &MemfoldConfig, scope: &ScopeRef) -> Result<()> {

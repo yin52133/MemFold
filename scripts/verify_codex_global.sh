@@ -187,4 +187,20 @@ then
   repair_needed "raw_text search did not resolve back to the stored memory"
 fi
 
+if ! "${MEMFOLD_BIN}" --root "${MEMFOLD_HOME}" feedback \
+  --scope-type "${VERIFY_SCOPE_TYPE}" \
+  --scope-id "${VERIFY_SCOPE_ID}" \
+  --claim-fingerprint "${VERIFY_MEMORY_CLAIM}" \
+  --verdict rejected \
+  --reason "verify cleanup" \
+  --session-id "${MEMORY_SESSION_ID}" >/tmp/memfold_verify_feedback.json; then
+  repair_needed "feedback cleanup failed for verify memory"
+fi
+
+if ! "${MEMFOLD_BIN}" --root "${MEMFOLD_HOME}" repair \
+  --scope-type "${VERIFY_SCOPE_TYPE}" \
+  --scope-id "${VERIFY_SCOPE_ID}" >/tmp/memfold_verify_cleanup_repair.json; then
+  repair_needed "repair cleanup failed for verify memory"
+fi
+
 echo "[verify] ok: launcher, hooks, qmd sync, and search all passed"
