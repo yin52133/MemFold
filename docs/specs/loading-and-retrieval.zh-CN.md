@@ -125,6 +125,6 @@ Expected: promoted user-origin item can resolve to one raw `session_log` entry
 Completion signal: trace success rate for promoted user-origin items = 100%
 
 Capability: rejected claims stop resurfacing through search
-Failure example: feedback 已明确拒绝的 claim 仍然从 stable / session_log 检索结果里返回
-Expected: tombstoned claim_fingerprint is filtered out before results are returned
+Failure example: feedback 已明确拒绝的 claim 仍然从 stable / session_log / history 检索结果里返回
+Expected: tombstoned claim_fingerprint is filtered out before results are returned, and exact-summary history echoes of the same rejected claim are also suppressed
 Completion signal: rejected-claim search resurfacing rate = 0

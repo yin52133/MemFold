@@ -81,6 +81,7 @@ embedding 可用时：
 - 有 `raw_text` 的 `session_log` 会参与检索
 - `stable / history / session_log` 的重复摘要会去重
 - 如果 raw-text 命中的 claim 已经晋升为 `stable`，优先返回 `stable`
+- 如果 `history` 摘要与已 tombstone 的 claim 摘要完全一致，也会在结果里被过滤掉
 
 embedding 不可用时：
 
