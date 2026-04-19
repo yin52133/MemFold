@@ -77,6 +77,7 @@ Codex session start
 工作进行中
   -> hook/turn_end 记录 promotable=0 的过滤摘要
   -> skill/tool 在需要时写 promotable=1 / search / feedback
+  -> 只有调用方显式提供时才保存 user `raw_text`
 
 session 结束
   -> hook/session_end 写 session 摘要
@@ -86,6 +87,7 @@ session 结束
 dreaming 运行
   -> 读取 promotable evidence
   -> tombstone / sterile / analysis-draft 先过滤
+  -> 没有显式原话 trace 的 user 候选不会晋升
   -> promote / hold / discard
   -> 重编 bundle
   -> qmd sync
@@ -224,12 +226,13 @@ cdx-memfold
 
 说明：
 
-- deploy 会重建 binary、刷新 launcher / hooks / plugin source、清理 plugin cache、执行 QMD sync，然后跑 verify
-- deploy 只会在 verify 判断为“可修复漂移”时才自动执行 `memfold repair`
+- deploy 会重建 binary、刷新 launcher / hooks / plugin source、清理 plugin cache、先执行一次 `memfold repair`、刷新 QMD，然后跑 verify
+- 如果 verify 仍判断为“可修复漂移”，deploy 还会再补一次 `memfold repair`
 - `cdx-memfold` 会在启动前跑 `session_start`，并在 `EXIT / ctrl+c / TERM / HUP` 时 best-effort 跑 `session_end`
 - 当前启动阶段会补偿执行一次 `dream maybe-run + qmd sync`，用于兜底上一次退出时可能遗漏的整理与索引刷新
 - 仓库内的 `turn_end.sh` 会随 deploy 刷新，但当前每轮自动挂接仍依赖宿主侧接入，不等同于只做 plugin install
 - 只做 plugin 安装不是完整部署
+- verify 现在会真实走一遍 raw-text memory 路径（`write-evidence -> dream run -> search`），并在最后清理自己的 smoke memory 与 verify session 目录
 
 ## 验证
 

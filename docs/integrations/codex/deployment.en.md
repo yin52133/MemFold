@@ -45,7 +45,9 @@ cdx-memfold
 - verify checks launcher `session_start/session_end` smoke behavior
 - verify checks global `turn_end` hook persistence
 - verify checks `qmd sync` plus a real `search` round-trip
-- deploy only falls back to `memfold repair` when verify reports repairable drift
+- verify also checks a raw-text memory round-trip: `write-evidence -> dream run -> search`
+- verify cleans up its own smoke memory and verify session directories before the final repair pass
+- deploy runs an initial `memfold repair` before sync/verify, and still falls back to another repair when verify reports repairable drift
 
 ## Notes
 

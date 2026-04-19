@@ -77,6 +77,7 @@ Codex session start
 During work
   -> hook/turn_end captures filtered promotable=0 summaries
   -> skills/tools explicitly call write-evidence/search/feedback
+  -> user raw_text is only stored when the caller explicitly provides it
 
 Session end
   -> hook/session_end writes final session summary
@@ -86,6 +87,7 @@ Session end
 Dreaming
   -> read promotable evidence
   -> filter tombstoned / sterile / analysis-draft candidates
+  -> reject user-origin candidates that have no explicit raw trace
   -> promote / hold / discard
   -> rebuild bundle
   -> qmd sync
@@ -227,12 +229,13 @@ cdx-memfold
 
 Behavior:
 
-- deploy rebuilds the binary, refreshes launcher / hooks / plugin source, clears plugin cache, runs QMD sync, and then runs verify
-- deploy only runs `memfold repair` when verify reports repairable drift
+- deploy rebuilds the binary, refreshes launcher / hooks / plugin source, clears plugin cache, runs an initial `memfold repair`, refreshes QMD, and then runs verify
+- deploy still falls back to another `memfold repair` when verify reports repairable drift
 - `cdx-memfold` runs `session_start` before Codex starts and best-effort runs `session_end` on `EXIT / ctrl+c / TERM / HUP`
 - startup now compensates with `dream maybe-run` and `qmd sync` for work that may have been missed at exit time
 - shipped `turn_end.sh` is refreshed by deploy, but current host-side per-turn attachment is still separate from plugin installation
 - plugin installation alone is not the full deployment path
+- verify now exercises a raw-text memory round-trip (`write-evidence -> dream run -> search`) and cleans up its own smoke memory and verify session directories before the final repair pass
 
 ## Validation
 

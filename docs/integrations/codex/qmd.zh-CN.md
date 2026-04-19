@@ -76,6 +76,9 @@ memfold --root ~/.codex/memfold search \
 embedding 可用时：
 
 - 使用 embedding + 词法混合评分
+- 有 `raw_text` 的 `session_log` 会参与检索
+- `stable / history / session_log` 的重复摘要会去重
+- 如果 raw-text 命中的 claim 已经晋升为 `stable`，优先返回 `stable`
 
 embedding 不可用时：
 
