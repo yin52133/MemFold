@@ -447,6 +447,9 @@ fn merge_file_contents(source: &Path, destination: &Path) -> Result<()> {
     }
 
     let merged = match source.extension().and_then(|ext| ext.to_str()) {
+        Some("md") if destination.components().any(|component| component.as_os_str() == "stable") => {
+            merge_stable_markdown_blocks(&destination_contents, &source_contents)
+        }
         Some("jsonl") => merge_unique_lines(&destination_contents, &source_contents),
         Some("md") => merge_markdown_blocks(&destination_contents, &source_contents),
         _ => format!("{}\n{}", destination_contents.trim_end(), source_contents.trim_start()),
@@ -493,6 +496,39 @@ fn merge_markdown_blocks(existing: &str, incoming: &str) -> String {
     } else {
         format!("{}\n", blocks.join("\n\n"))
     }
+}
+
+fn merge_stable_markdown_blocks(existing: &str, incoming: &str) -> String {
+    let mut seen_item_keys = HashSet::new();
+    let mut blocks = Vec::new();
+    for block in existing
+        .split("\n\n")
+        .chain(incoming.split("\n\n"))
+        .map(str::trim)
+        .filter(|block| !block.is_empty())
+    {
+        let Some(item_key) = stable_item_key(block) else {
+            if !blocks.iter().any(|existing_block| existing_block == block) {
+                blocks.push(block.to_string());
+            }
+            continue;
+        };
+        if seen_item_keys.insert(item_key) {
+            blocks.push(block.to_string());
+        }
+    }
+
+    if blocks.is_empty() {
+        String::new()
+    } else {
+        format!("{}\n", blocks.join("\n\n"))
+    }
+}
+
+fn stable_item_key(block: &str) -> Option<String> {
+    block
+        .lines()
+        .find_map(|line| line.strip_prefix("## item_key:").map(|value| value.trim().to_string()))
 }
 
 fn clean_session_logs(config: &MemfoldConfig, scope: &ScopeRef) -> Result<()> {

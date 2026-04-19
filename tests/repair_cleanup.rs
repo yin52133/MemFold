@@ -146,3 +146,61 @@ fn repair_merges_alias_session_logs_without_duplicate_evidence_ids() {
         .unwrap();
     assert_eq!(count, 1);
 }
+
+#[test]
+fn repair_merges_alias_stable_blocks_without_duplicate_item_keys() {
+    let tmp = TempDir::new().unwrap();
+    let root = memfold_root(&tmp);
+    let config = MemfoldConfig::default_for_root(root.clone());
+    initialize_root(&config).unwrap();
+
+    let canonical_stable_dir = root
+        .join("memory")
+        .join("repos")
+        .join("memfold")
+        .join("stable");
+    let alias_stable_dir = root
+        .join("memory")
+        .join("repos")
+        .join("MemFold")
+        .join("stable");
+    fs::create_dir_all(&canonical_stable_dir).unwrap();
+    fs::create_dir_all(&alias_stable_dir).unwrap();
+
+    fs::write(
+        canonical_stable_dir.join("rules.md"),
+        "## item_key: project.memory.clean_truth\n\
+title: Canonical title\n\
+status: stable\n\
+autoload: boot_project\n\
+claim_fingerprint: cfp_clean_truth\n\
+content_hash: sha256:canonical\n\
+revision: 1\n\n\
+用户要求默认中文\n",
+    )
+    .unwrap();
+    fs::write(
+        alias_stable_dir.join("rules.md"),
+        "## item_key: project.memory.clean_truth\n\
+title: Alias title\n\
+status: stable\n\
+autoload: boot_project\n\
+claim_fingerprint: cfp_clean_truth\n\
+content_hash: sha256:alias\n\
+revision: 1\n\n\
+用户要求默认中文\n",
+    )
+    .unwrap();
+
+    run_repair(&config, None).unwrap();
+
+    let conn = Connection::open(config.state_db_path()).unwrap();
+    let count: i64 = conn
+        .query_row(
+            "SELECT COUNT(*) FROM memory_items WHERE item_key = 'project.memory.clean_truth'",
+            [],
+            |row| row.get(0),
+        )
+        .unwrap();
+    assert_eq!(count, 1);
+}
