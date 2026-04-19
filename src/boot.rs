@@ -13,6 +13,7 @@ use crate::memory_fs::markdown;
 use crate::memory_fs::paths::{project_bundle_path, stable_dir};
 use crate::mutations::MutationStore;
 use crate::state::schema;
+use crate::token_estimate;
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct BundleItem {
@@ -281,7 +282,7 @@ fn autoload_matches(scope_type: ScopeType, autoload: &str) -> bool {
 }
 
 fn estimate_tokens(text: &str) -> usize {
-    text.split_whitespace().count()
+    token_estimate::estimate_tokens(text)
 }
 
 fn canonical_text_key(text: &str) -> String {

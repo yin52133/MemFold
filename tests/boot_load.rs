@@ -294,7 +294,7 @@ revision: 1\n\n\
 
     let bundle = compile_scope_bundle(&config, &scope, 100).unwrap();
     assert_eq!(bundle.items.len(), 1);
-    assert_eq!(bundle.total_tokens_estimate, 1);
+    assert_eq!(bundle.total_tokens_estimate, bundle.items[0].token_estimate);
     assert_eq!(bundle.items[0].text, "用户要求默认中文");
 }
 
@@ -338,6 +338,45 @@ revision: 1\n\n\
 
     let load = load_startup_bundle(&config, &project_scope, Mode::Normal, None).unwrap();
     assert_eq!(load.items.len(), 1);
-    assert_eq!(load.total_tokens_estimate, 1);
+    assert_eq!(load.total_tokens_estimate, load.items[0].token_estimate);
     assert_eq!(load.items[0].text, "用户要求默认中文");
+}
+
+#[test]
+fn compile_scope_bundle_estimates_compact_chinese_text_above_one_token() {
+    let (_tmp, config) = init_config();
+    let scope = ScopeRef::new(ScopeType::Project, "memfold").unwrap();
+    let stable_path = config
+        .root
+        .join("memory")
+        .join("repos")
+        .join("memfold")
+        .join("stable")
+        .join("rules.md");
+    write_stable_file(
+        &stable_path,
+        "## item_key: project.rule.zh\n\
+title: Zh\n\
+status: stable\n\
+autoload: boot_project\n\
+claim_fingerprint: cfp_zh\n\
+content_hash: sha256:zh\n\
+revision: 1\n\n\
+以后默认用中文回答，而且直接指出我哪里说错了。\n",
+    );
+
+    let conn = Connection::open(config.state_db_path()).unwrap();
+    insert_memory_item(
+        &conn,
+        "mem_zh",
+        "project",
+        "memfold",
+        "project.rule.zh",
+        "memory/repos/memfold/stable/rules.md",
+    );
+
+    let bundle = compile_scope_bundle(&config, &scope, 100).unwrap();
+    assert_eq!(bundle.items.len(), 1);
+    assert!(bundle.items[0].token_estimate > 1);
+    assert!(bundle.total_tokens_estimate > 1);
 }

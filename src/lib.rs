@@ -17,5 +17,6 @@ pub mod retrieval;
 pub mod runtime_log;
 pub mod state;
 pub mod timestamps;
+pub mod token_estimate;
 pub mod trace;
 pub mod dreaming;

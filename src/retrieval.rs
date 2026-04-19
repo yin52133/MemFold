@@ -8,6 +8,7 @@ use crate::domain::ScopeRef;
 use crate::error::{Error, Result};
 use crate::qmd_adapter::{embed_query, load_scope_records, sync_scope, QmdRecord};
 use crate::state::schema;
+use crate::token_estimate;
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize)]
 pub struct SearchResult {
@@ -240,8 +241,7 @@ fn normalize_tokens(text: &str) -> Vec<String> {
 }
 
 fn estimate_tokens(text: &str) -> usize {
-    let count = normalize_tokens(text).len();
-    count.max(1)
+    token_estimate::estimate_tokens(text)
 }
 
 fn canonical_summary_key(text: &str) -> String {
