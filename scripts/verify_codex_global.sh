@@ -17,6 +17,7 @@ HOOK_SESSION_ID="verify_hook_${VERIFY_SUFFIX}"
 MEMORY_SESSION_ID="verify_memory_${VERIFY_SUFFIX}"
 SEARCH_TOKEN="verify-token-${VERIFY_SUFFIX}"
 TURN_SUMMARY="MemFold verify turn ${SEARCH_TOKEN}"
+LAUNCHER_SUMMARY="MemFold launcher verify ${VERIFY_SUFFIX}"
 VERIFY_MEMORY_SUMMARY="用户要求默认中文"
 VERIFY_MEMORY_RAW_TEXT="以后默认用中文回答，而且直接指出我哪里说错了。"
 VERIFY_MEMORY_QUERY="默认用中文回答而且直接指出我哪里说错了"
@@ -88,10 +89,11 @@ ensure_marketplace_entry || fatal "marketplace is missing the memfold plugin ent
 MEMFOLD_SESSION_ID="${LAUNCHER_SESSION_ID}" \
 MEMFOLD_SCOPE_TYPE="${VERIFY_SCOPE_TYPE}" \
 MEMFOLD_SCOPE_ID="${VERIFY_SCOPE_ID}" \
+MEMFOLD_SESSION_SUMMARY="${LAUNCHER_SUMMARY}" \
 "${CDX_MEMFOLD_BIN}" --help >/tmp/cdx_memfold_verify_help.txt
 
-launcher_count="$(sqlite_single_value "SELECT COUNT(*) FROM session_log_entries WHERE session_id = '${LAUNCHER_SESSION_ID}'")"
-[[ "${launcher_count}" -ge 1 ]] || repair_needed "launcher smoke test did not persist a session_end summary"
+launcher_count="$(sqlite_single_value "SELECT COUNT(*) FROM session_log_entries WHERE session_id = '${LAUNCHER_SESSION_ID}' AND summary = '${LAUNCHER_SUMMARY}'")"
+[[ "${launcher_count}" -ge 1 ]] || repair_needed "launcher smoke test did not persist the expected session_end summary"
 
 MEMFOLD_ROOT="${MEMFOLD_HOME}" \
 MEMFOLD_SCOPE_TYPE="${VERIFY_SCOPE_TYPE}" \
