@@ -291,11 +291,18 @@ fn rebuild_evidence_items(config: &MemfoldConfig, conn: &Connection, scope: &Sco
             .replace('\\', "/");
         let contents = fs::read_to_string(&evidence_path)?;
         let mut evidence_count = 0i64;
+        let mut started_at = None::<String>;
+        let mut ended_at = None::<String>;
         for (idx, line) in contents.lines().enumerate() {
             if line.trim().is_empty() {
                 continue;
             }
             let value: serde_json::Value = serde_json::from_str(line)?;
+            let created_at = value["created_at"].as_str().unwrap_or_default().to_string();
+            if started_at.is_none() {
+                started_at = Some(created_at.clone());
+            }
+            ended_at = Some(created_at.clone());
             conn.execute(
                 "INSERT INTO session_log_entries (
                     id, session_id, scope_type, scope_id, source_kind, summary, raw_text, jsonl_path, line_no,
@@ -314,21 +321,25 @@ fn rebuild_evidence_items(config: &MemfoldConfig, conn: &Connection, scope: &Sco
                     if value["promotable"].as_bool().unwrap_or(false) { 1 } else { 0 },
                     value["origin_mode"].as_str().unwrap_or("normal"),
                     value["claim_fingerprint"].as_str(),
-                    value["created_at"].as_str().unwrap_or_default(),
+                    &created_at,
                 ],
             )?;
             evidence_count += 1;
             count += 1;
         }
 
+        let started_at = started_at.unwrap_or_else(now_rfc3339);
+        let ended_at = ended_at.unwrap_or_else(|| started_at.clone());
+
         conn.execute(
             "INSERT INTO sessions (id, scope_type, scope_id, mode, intent, host, started_at, ended_at, evidence_count)
-             VALUES (?1, ?2, ?3, 'normal', 'continue', NULL, ?4, NULL, ?5)",
+             VALUES (?1, ?2, ?3, 'normal', 'continue', NULL, ?4, ?5, ?6)",
             params![
                 &session_id,
                 scope.scope_type.as_str(),
                 &scope.scope_id,
-                now_rfc3339(),
+                started_at,
+                ended_at,
                 evidence_count,
             ],
         )?;

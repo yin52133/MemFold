@@ -5,6 +5,7 @@ use memfold::domain::{Intent, ScopeRef, ScopeType};
 use memfold::init::initialize_root;
 use memfold::repair::run_repair;
 use memfold::retrieval::search_memories;
+use rusqlite::Connection;
 use tempfile::TempDir;
 
 fn memfold_root(tmp: &TempDir) -> std::path::PathBuf {
@@ -66,4 +67,42 @@ fn repair_canonicalizes_project_scope_and_prunes_dirty_memory() {
 
     assert!(root.join("memory").join("repos").join("memfold").exists());
     assert!(!root.join("memory").join("repos").join("MemFold").exists());
+}
+
+#[test]
+fn repair_rebuilds_session_end_timestamps_from_session_logs() {
+    let tmp = TempDir::new().unwrap();
+    let root = memfold_root(&tmp);
+    let config = MemfoldConfig::default_for_root(root.clone());
+    initialize_root(&config).unwrap();
+
+    let session_dir = root
+        .join("memory")
+        .join("repos")
+        .join("memfold")
+        .join("sessions")
+        .join("sess_done");
+    fs::create_dir_all(&session_dir).unwrap();
+    fs::write(
+        session_dir.join("session_log.jsonl"),
+        concat!(
+            "{\"evidence_id\":\"ev_1\",\"scope\":{\"type\":\"project\",\"id\":\"memfold\"},\"session_id\":\"sess_done\",\"source_kind\":\"user\",\"summary\":\"first\",\"raw_text\":\"first raw\",\"promotable\":false,\"origin_mode\":\"normal\",\"claim_fingerprint\":\"cfp_1\",\"created_at\":\"2026-04-12T18:00:00Z\"}\n",
+            "{\"evidence_id\":\"ev_2\",\"scope\":{\"type\":\"project\",\"id\":\"memfold\"},\"session_id\":\"sess_done\",\"source_kind\":\"decision\",\"summary\":\"second\",\"raw_text\":null,\"promotable\":false,\"origin_mode\":\"normal\",\"claim_fingerprint\":null,\"created_at\":\"2026-04-12T18:05:00Z\"}\n"
+        ),
+    )
+    .unwrap();
+
+    run_repair(&config, None).unwrap();
+
+    let conn = Connection::open(config.state_db_path()).unwrap();
+    let session: (String, String) = conn
+        .query_row(
+            "SELECT started_at, ended_at FROM sessions WHERE id = 'sess_done'",
+            [],
+            |row| Ok((row.get(0)?, row.get(1)?)),
+        )
+        .unwrap();
+
+    assert_eq!(session.0, "2026-04-12T18:00:00Z");
+    assert_eq!(session.1, "2026-04-12T18:05:00Z");
 }
