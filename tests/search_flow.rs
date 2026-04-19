@@ -386,6 +386,7 @@ fn search_memories_rejects_moderate_semantic_match_without_lexical_overlap() {
             relative_path: "memory/repos/memfold/stable/rules.md".to_string(),
             pointer: "memory/repos/memfold/stable/rules.md#project.memory.clean_truth".to_string(),
             summary: "用户要求默认中文".to_string(),
+            raw_text: None,
             status: "stable".to_string(),
             scope_type: "project".to_string(),
             scope_id: "memfold".to_string(),
@@ -417,6 +418,7 @@ fn search_memories_keeps_high_confidence_semantic_match_without_lexical_overlap(
             relative_path: "memory/repos/memfold/stable/rules.md".to_string(),
             pointer: "memory/repos/memfold/stable/rules.md#project.memory.semantic".to_string(),
             summary: "launch lifecycle shutdown signal handling".to_string(),
+            raw_text: None,
             status: "stable".to_string(),
             scope_type: "project".to_string(),
             scope_id: "memfold".to_string(),
@@ -428,6 +430,34 @@ fn search_memories_keeps_high_confidence_semantic_match_without_lexical_overlap(
     let result = search_memories(&config, &scope, Intent::Continue, query, 50).unwrap();
     assert_eq!(result.results.len(), 1);
     assert_eq!(result.results[0].doc_id, "mem_true_positive");
+}
+
+#[test]
+fn search_memories_matches_session_raw_text_when_summary_is_paraphrased() {
+    let (_tmp, config) = init_config();
+    let scope = ScopeRef::new(ScopeType::Project, "memfold").unwrap();
+
+    write_evidence(
+        &config,
+        &WriteEvidenceInput {
+            scope: scope.clone(),
+            session_id: "sess_raw_text".to_string(),
+            source_kind: SourceKind::User,
+            summary: "用户要求默认中文".to_string(),
+            raw_text: Some("以后不要英文，直接用中文回答我。".to_string()),
+            promotable: true,
+            origin_mode: Mode::Normal,
+            claim_fingerprint: Some("cfp_raw_search".to_string()),
+        },
+    )
+    .unwrap();
+
+    sync_scope(&config, &scope).unwrap();
+    let result = search_memories(&config, &scope, Intent::Continue, "不要英文 直接用中文", 80).unwrap();
+
+    assert_eq!(result.results.len(), 1);
+    assert_eq!(result.results[0].source_type, "session_log");
+    assert_eq!(result.results[0].summary, "用户要求默认中文");
 }
 
 fn write_qmd_records(

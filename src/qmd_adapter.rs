@@ -20,6 +20,8 @@ pub struct QmdRecord {
     pub relative_path: String,
     pub pointer: String,
     pub summary: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub raw_text: Option<String>,
     pub status: String,
     pub scope_type: String,
     pub scope_id: String,
@@ -173,6 +175,7 @@ fn build_stable_records(config: &MemfoldConfig, scope: &ScopeRef) -> Result<Vec<
                 relative_path: relative_path.clone(),
                 pointer: format!("{relative_path}#{}", item.item_key),
                 summary: item.summary,
+                raw_text: None,
                 status: item.status,
                 scope_type: scope.scope_type.as_str().to_string(),
                 scope_id: scope.scope_id.clone(),
@@ -220,6 +223,7 @@ fn build_evidence_records(config: &MemfoldConfig, scope: &ScopeRef) -> Result<Ve
                 "recorded"
             };
             let summary = value["summary"].as_str().unwrap_or("").to_string();
+            let raw_text = value["raw_text"].as_str().map(|value| value.to_string());
             if is_memory_noise(&summary) {
                 continue;
             }
@@ -229,6 +233,7 @@ fn build_evidence_records(config: &MemfoldConfig, scope: &ScopeRef) -> Result<Ve
                 relative_path: relative_path.clone(),
                 pointer: format!("{relative_path}#{}", idx + 1),
                 summary,
+                raw_text,
                 status: status.to_string(),
                 scope_type: scope.scope_type.as_str().to_string(),
                 scope_id: scope.scope_id.clone(),
@@ -273,6 +278,7 @@ fn build_archive_records(config: &MemfoldConfig, scope: &ScopeRef) -> Result<Vec
                 relative_path: relative_path.clone(),
                 pointer: format!("{relative_path}#entry-{}", idx + 1),
                 summary: entry.summary,
+                raw_text: None,
                 status: "history".to_string(),
                 scope_type: scope.scope_type.as_str().to_string(),
                 scope_id: scope.scope_id.clone(),

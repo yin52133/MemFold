@@ -87,8 +87,13 @@ pub fn search_memories(
 }
 
 fn score_record(record: &QmdRecord, query_tokens: &[String], query_embedding: Option<&[f32]>) -> usize {
-    let haystack = normalize_tokens(&record.summary);
-    let summary_lower = record.summary.to_lowercase();
+    let search_text = record
+        .raw_text
+        .as_deref()
+        .map(|raw| format!("{} {}", record.summary, raw))
+        .unwrap_or_else(|| record.summary.clone());
+    let haystack = normalize_tokens(&search_text);
+    let summary_lower = search_text.to_lowercase();
     let lexical = query_tokens
         .iter()
         .filter(|token| {
