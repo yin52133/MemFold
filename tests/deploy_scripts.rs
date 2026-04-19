@@ -24,6 +24,7 @@ fn verify_script_checks_launcher_hook_and_search_health() {
     assert!(script.contains("feedback"));
     assert!(script.contains("MEMFOLD_SESSION_SUMMARY"));
     assert!(script.contains("HOOK_SUMMARY"));
+    assert!(script.contains("verify_memory_raw_trace"));
     assert!(script.contains("42"));
 }
 
