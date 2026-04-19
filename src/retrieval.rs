@@ -359,23 +359,36 @@ fn load_tombstoned_summaries(config: &MemfoldConfig, scope: &ScopeRef) -> Result
     let conn = Connection::open(db_path)?;
     schema::apply_schema(&conn)?;
     let mut stmt = conn.prepare(
-        "SELECT DISTINCT summary
+        "SELECT summary, claim_fingerprint
          FROM session_log_entries
          WHERE scope_type = ?1
            AND scope_id = ?2
-           AND claim_fingerprint IN (
-             SELECT claim_fingerprint
-             FROM tombstones
-             WHERE scope_type = ?1 AND scope_id = ?2
-           )",
+           AND claim_fingerprint IS NOT NULL",
     )?;
     let rows = stmt.query_map(
         params![scope.scope_type.as_str(), &scope.scope_id],
-        |row| row.get::<_, String>(0),
+        |row| Ok((row.get::<_, String>(0)?, row.get::<_, String>(1)?)),
     )?;
-    let summaries = rows.collect::<rusqlite::Result<Vec<_>>>()?;
-    Ok(summaries
+    let summary_fingerprints = rows.collect::<rusqlite::Result<Vec<_>>>()?;
+    let tombstoned_claims = load_tombstoned_claims(config, scope)?;
+
+    let mut grouped = HashMap::<String, HashSet<String>>::new();
+    for (summary, fingerprint) in summary_fingerprints {
+        grouped
+            .entry(canonical_summary_key(&summary))
+            .or_default()
+            .insert(fingerprint);
+    }
+
+    let fully_tombstoned = grouped
         .into_iter()
-        .map(|summary| canonical_summary_key(&summary))
-        .collect())
+        .filter_map(|(summary, fingerprints)| {
+            (!fingerprints.is_empty()
+                && fingerprints
+                    .iter()
+                    .all(|fingerprint| tombstoned_claims.contains(fingerprint)))
+            .then_some(summary)
+        })
+        .collect::<HashSet<_>>();
+    Ok(fully_tombstoned)
 }

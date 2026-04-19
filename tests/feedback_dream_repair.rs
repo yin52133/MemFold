@@ -453,6 +453,82 @@ fn rejected_claims_do_not_resurface_through_history_search() {
 }
 
 #[test]
+fn rejected_claim_does_not_hide_unrelated_history_with_same_summary() {
+    let tmp = TempDir::new().unwrap();
+    let root = memfold_root(&tmp);
+    let config = MemfoldConfig::default_for_root(root.clone());
+    initialize_root(&config).unwrap();
+    let scope = ScopeRef::new(ScopeType::Project, "memfold").unwrap();
+
+    write_evidence(
+        &config,
+        &WriteEvidenceInput {
+            scope: scope.clone(),
+            session_id: "sess_same_summary_a".to_string(),
+            source_kind: SourceKind::User,
+            summary: "用户要求默认中文".to_string(),
+            raw_text: Some("以后默认用中文回答。".to_string()),
+            promotable: false,
+            origin_mode: Mode::Normal,
+            claim_fingerprint: Some("cfp_same_summary_a".to_string()),
+        },
+    )
+    .unwrap();
+    summarize_history(
+        &config,
+        &SummarizeHistoryInput {
+            scope: scope.clone(),
+            session_id: "sess_same_summary_a".to_string(),
+            trigger: "session_end".to_string(),
+        },
+    )
+    .unwrap();
+
+    write_evidence(
+        &config,
+        &WriteEvidenceInput {
+            scope: scope.clone(),
+            session_id: "sess_same_summary_b".to_string(),
+            source_kind: SourceKind::User,
+            summary: "用户要求默认中文".to_string(),
+            raw_text: Some("以后默认中文，而且尽量简洁。".to_string()),
+            promotable: false,
+            origin_mode: Mode::Normal,
+            claim_fingerprint: Some("cfp_same_summary_b".to_string()),
+        },
+    )
+    .unwrap();
+    summarize_history(
+        &config,
+        &SummarizeHistoryInput {
+            scope: scope.clone(),
+            session_id: "sess_same_summary_b".to_string(),
+            trigger: "session_end".to_string(),
+        },
+    )
+    .unwrap();
+
+    let feedback = apply_feedback(
+        &config,
+        &scope,
+        "cfp_same_summary_a",
+        "rejected",
+        "这条记忆不对",
+        Some("sess_same_summary_a"),
+    )
+    .unwrap();
+    assert!(feedback.updated);
+
+    let result = search_memories(&config, &scope, Intent::Continue, "默认中文", 80).unwrap();
+    assert!(
+        result
+            .results
+            .iter()
+            .any(|item| item.source_type == "history" && item.summary == "用户要求默认中文")
+    );
+}
+
+#[test]
 fn repair_rebuilds_trace_archives_projection() {
     let tmp = TempDir::new().unwrap();
     let root = memfold_root(&tmp);
