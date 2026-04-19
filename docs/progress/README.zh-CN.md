@@ -24,6 +24,7 @@ docs/progress/
     04-wave-4-feedback-dream-repair.zh-CN.md
     05-wave-5-codex-e2e.zh-CN.md
     06-wave-6-experiments.zh-CN.md
+    07-post-v1-hardening.zh-CN.md
 ```
 
 ## 3. 状态词汇
