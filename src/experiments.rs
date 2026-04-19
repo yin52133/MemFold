@@ -21,6 +21,10 @@ pub struct ExperimentCase {
     pub tombstoned: bool,
     pub origin_mode: String,
     pub analysis_draft: bool,
+    #[serde(default)]
+    pub source_kind: Option<String>,
+    #[serde(default = "default_has_raw_text")]
+    pub has_raw_text: bool,
     pub expected_action: ExpectedAction,
 }
 
@@ -106,6 +110,7 @@ fn evaluate_case(case: &ExperimentCase) -> ExpectedAction {
         || case.tombstoned
         || case.analysis_draft
         || case.origin_mode == "sterile"
+        || (case.source_kind.as_deref() == Some("user") && !case.has_raw_text)
     {
         return ExpectedAction::Discard;
     }
@@ -203,4 +208,8 @@ fn contains_sensitive_material(summary: &str) -> bool {
     ]
     .iter()
     .any(|needle| lowered.contains(needle))
+}
+
+fn default_has_raw_text() -> bool {
+    true
 }

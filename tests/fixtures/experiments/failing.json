@@ -35,6 +35,17 @@
       "origin_mode": "normal",
       "analysis_draft": false,
       "expected_action": "promote"
+    },
+    {
+      "id": "user-without-raw-text-expected-promote",
+      "summary": "用户要求默认用中文回答",
+      "promotable": true,
+      "tombstoned": false,
+      "origin_mode": "normal",
+      "analysis_draft": false,
+      "source_kind": "user",
+      "has_raw_text": false,
+      "expected_action": "promote"
     }
   ]
 }
