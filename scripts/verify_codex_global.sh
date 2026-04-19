@@ -207,6 +207,7 @@ fi
 rm -rf \
   "${VERIFY_SESSION_ROOT}"/verify_launcher_* \
   "${VERIFY_SESSION_ROOT}"/verify_hook_* \
+  "${VERIFY_SESSION_ROOT}"/verify_memory_* \
   "${VERIFY_SESSION_ROOT}/${MEMORY_SESSION_ID}"
 
 if ! "${MEMFOLD_BIN}" --root "${MEMFOLD_HOME}" repair \
