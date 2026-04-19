@@ -1,5 +1,5 @@
 use serde::Serialize;
-use std::collections::HashSet;
+use std::collections::{HashMap, HashSet};
 
 use crate::config::MemfoldConfig;
 use crate::domain::Intent;
@@ -39,20 +39,60 @@ pub fn search_memories(
         sync_scope(config, scope)?;
     }
 
-    let mut records = load_scope_records(config, scope)?;
+    let records = load_scope_records(config, scope)?;
     let query_tokens = normalize_tokens(query);
     let query_embedding = query_embedding(config, query);
-    records.retain(|record| score_record(record, &query_tokens, query_embedding.as_deref()) > 0);
+    let mut scores = records
+        .iter()
+        .map(|record| {
+            (
+                record.doc_id.clone(),
+                score_record(record, &query_tokens, query_embedding.as_deref()),
+            )
+        })
+        .collect::<HashMap<_, _>>();
+    let stable_by_claim = records
+        .iter()
+        .filter(|record| record.source_type == "stable")
+        .filter_map(|record| {
+            record
+                .claim_fingerprint
+                .as_ref()
+                .map(|fingerprint| (fingerprint.clone(), record.doc_id.clone()))
+        })
+        .collect::<HashMap<_, _>>();
 
+    for record in &records {
+        let score = scores.get(&record.doc_id).copied().unwrap_or(0);
+        if score == 0 {
+            continue;
+        }
+        let Some(claim_fingerprint) = record.claim_fingerprint.as_ref() else {
+            continue;
+        };
+        let Some(stable_doc_id) = stable_by_claim.get(claim_fingerprint) else {
+            continue;
+        };
+        if stable_doc_id == &record.doc_id {
+            continue;
+        }
+        let stable_score = scores.entry(stable_doc_id.clone()).or_insert(0);
+        *stable_score = (*stable_score).max(score);
+    }
+
+    let mut records = records
+        .into_iter()
+        .filter(|record| scores.get(&record.doc_id).copied().unwrap_or(0) > 0)
+        .collect::<Vec<_>>();
     records.sort_by(|left, right| {
         let left_key = (
             source_priority(&left.source_type, intent),
-            std::cmp::Reverse(score_record(left, &query_tokens, query_embedding.as_deref())),
+            std::cmp::Reverse(scores.get(&left.doc_id).copied().unwrap_or(0)),
             left.pointer.clone(),
         );
         let right_key = (
             source_priority(&right.source_type, intent),
-            std::cmp::Reverse(score_record(right, &query_tokens, query_embedding.as_deref())),
+            std::cmp::Reverse(scores.get(&right.doc_id).copied().unwrap_or(0)),
             right.pointer.clone(),
         );
         left_key.cmp(&right_key)

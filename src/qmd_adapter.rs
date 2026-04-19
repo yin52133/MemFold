@@ -22,6 +22,8 @@ pub struct QmdRecord {
     pub summary: String,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub raw_text: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub claim_fingerprint: Option<String>,
     pub status: String,
     pub scope_type: String,
     pub scope_id: String,
@@ -176,6 +178,7 @@ fn build_stable_records(config: &MemfoldConfig, scope: &ScopeRef) -> Result<Vec<
                 pointer: format!("{relative_path}#{}", item.item_key),
                 summary: item.summary,
                 raw_text: None,
+                claim_fingerprint: item.claim_fingerprint,
                 status: item.status,
                 scope_type: scope.scope_type.as_str().to_string(),
                 scope_id: scope.scope_id.clone(),
@@ -224,6 +227,8 @@ fn build_evidence_records(config: &MemfoldConfig, scope: &ScopeRef) -> Result<Ve
             };
             let summary = value["summary"].as_str().unwrap_or("").to_string();
             let raw_text = value["raw_text"].as_str().map(|value| value.to_string());
+            let claim_fingerprint =
+                value["claim_fingerprint"].as_str().map(|value| value.to_string());
             if is_memory_noise(&summary) {
                 continue;
             }
@@ -234,6 +239,7 @@ fn build_evidence_records(config: &MemfoldConfig, scope: &ScopeRef) -> Result<Ve
                 pointer: format!("{relative_path}#{}", idx + 1),
                 summary,
                 raw_text,
+                claim_fingerprint,
                 status: status.to_string(),
                 scope_type: scope.scope_type.as_str().to_string(),
                 scope_id: scope.scope_id.clone(),
@@ -279,6 +285,7 @@ fn build_archive_records(config: &MemfoldConfig, scope: &ScopeRef) -> Result<Vec
                 pointer: format!("{relative_path}#entry-{}", idx + 1),
                 summary: entry.summary,
                 raw_text: None,
+                claim_fingerprint: None,
                 status: "history".to_string(),
                 scope_type: scope.scope_type.as_str().to_string(),
                 scope_id: scope.scope_id.clone(),
@@ -344,6 +351,7 @@ fn make_relative_path(config: &MemfoldConfig, absolute: &Path) -> String {
 struct ParsedMarkdownItem {
     item_key: String,
     status: String,
+    claim_fingerprint: Option<String>,
     summary: String,
 }
 
@@ -371,6 +379,7 @@ fn parse_markdown_items(path: &Path) -> Result<Vec<ParsedMarkdownItem>> {
     let mut items = Vec::new();
     for (item_key, lines) in blocks {
         let mut status = None;
+        let mut claim_fingerprint = None;
         let mut body = Vec::new();
         let mut in_body = false;
         for line in lines {
@@ -383,6 +392,8 @@ fn parse_markdown_items(path: &Path) -> Result<Vec<ParsedMarkdownItem>> {
                 if let Some((key, value)) = line.split_once(':') {
                     if key.trim() == "status" {
                         status = Some(value.trim().to_string());
+                    } else if key.trim() == "claim_fingerprint" {
+                        claim_fingerprint = Some(value.trim().to_string());
                     }
                     continue;
                 }
@@ -396,6 +407,7 @@ fn parse_markdown_items(path: &Path) -> Result<Vec<ParsedMarkdownItem>> {
         items.push(ParsedMarkdownItem {
             item_key,
             status: status.unwrap_or_else(|| "candidate".to_string()),
+            claim_fingerprint,
             summary: body.join("\n").trim().to_string(),
         });
     }

@@ -387,6 +387,7 @@ fn search_memories_rejects_moderate_semantic_match_without_lexical_overlap() {
             pointer: "memory/repos/memfold/stable/rules.md#project.memory.clean_truth".to_string(),
             summary: "用户要求默认中文".to_string(),
             raw_text: None,
+            claim_fingerprint: None,
             status: "stable".to_string(),
             scope_type: "project".to_string(),
             scope_id: "memfold".to_string(),
@@ -419,6 +420,7 @@ fn search_memories_keeps_high_confidence_semantic_match_without_lexical_overlap(
             pointer: "memory/repos/memfold/stable/rules.md#project.memory.semantic".to_string(),
             summary: "launch lifecycle shutdown signal handling".to_string(),
             raw_text: None,
+            claim_fingerprint: None,
             status: "stable".to_string(),
             scope_type: "project".to_string(),
             scope_id: "memfold".to_string(),
@@ -457,6 +459,63 @@ fn search_memories_matches_session_raw_text_when_summary_is_paraphrased() {
 
     assert_eq!(result.results.len(), 1);
     assert_eq!(result.results[0].source_type, "session_log");
+    assert_eq!(result.results[0].summary, "用户要求默认中文");
+}
+
+#[test]
+fn search_memories_prefers_stable_memory_when_raw_text_matches_same_claim() {
+    let (_tmp, config) = init_config();
+    let scope = ScopeRef::new(ScopeType::Project, "memfold").unwrap();
+    let conn = Connection::open(config.state_db_path()).unwrap();
+
+    write_stable_file(
+        &config
+            .root
+            .join("memory")
+            .join("repos")
+            .join("memfold")
+            .join("stable")
+            .join("rules.md"),
+        "## item_key: project.memory.clean_truth\n\
+title: Clean truth\n\
+status: stable\n\
+autoload: boot_project\n\
+claim_fingerprint: cfp_clean_truth\n\
+content_hash: sha256:cleantruth\n\
+revision: 1\n\n\
+用户要求默认中文\n",
+    );
+    insert_memory_item(
+        &conn,
+        "mem_clean_truth",
+        "project",
+        "memfold",
+        "project.memory.clean_truth",
+        "memory/repos/memfold/stable/rules.md",
+        "Clean truth",
+        "2026-04-19T12:00:00Z",
+    );
+
+    write_evidence(
+        &config,
+        &WriteEvidenceInput {
+            scope: scope.clone(),
+            session_id: "sess_raw_text_stable".to_string(),
+            source_kind: SourceKind::User,
+            summary: "用户要求默认中文".to_string(),
+            raw_text: Some("以后不要英文，直接用中文回答我。".to_string()),
+            promotable: true,
+            origin_mode: Mode::Normal,
+            claim_fingerprint: Some("cfp_clean_truth".to_string()),
+        },
+    )
+    .unwrap();
+
+    sync_scope(&config, &scope).unwrap();
+    let result = search_memories(&config, &scope, Intent::Continue, "不要英文 直接用中文", 80).unwrap();
+
+    assert_eq!(result.results.len(), 1);
+    assert_eq!(result.results[0].source_type, "stable");
     assert_eq!(result.results[0].summary, "用户要求默认中文");
 }
 
