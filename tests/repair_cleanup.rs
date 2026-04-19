@@ -204,3 +204,53 @@ revision: 1\n\n\
         .unwrap();
     assert_eq!(count, 1);
 }
+
+#[test]
+fn repair_merges_alias_history_blocks_without_duplicate_summary_ids() {
+    let tmp = TempDir::new().unwrap();
+    let root = memfold_root(&tmp);
+    let config = MemfoldConfig::default_for_root(root.clone());
+    initialize_root(&config).unwrap();
+
+    let canonical_history_dir = root
+        .join("memory")
+        .join("repos")
+        .join("memfold")
+        .join("history")
+        .join("daily");
+    let alias_history_dir = root
+        .join("memory")
+        .join("repos")
+        .join("MemFold")
+        .join("history")
+        .join("daily");
+    fs::create_dir_all(&canonical_history_dir).unwrap();
+    fs::create_dir_all(&alias_history_dir).unwrap();
+
+    fs::write(
+        canonical_history_dir.join("2026-04-12.md"),
+        "<!-- session: sess_canonical | summary_id: hs_dup -->\n\
+## 2026-04-12T18:00:00Z [manual] 用户要求默认中文\n\
+- [user] 用户要求默认中文\n",
+    )
+    .unwrap();
+    fs::write(
+        alias_history_dir.join("2026-04-12.md"),
+        "<!-- session: sess_alias | summary_id: hs_dup -->\n\
+## 2026-04-12T18:00:00Z [manual] 用户要求默认中文\n\
+- [user] 用户要求默认中文\n",
+    )
+    .unwrap();
+
+    run_repair(&config, None).unwrap();
+
+    let conn = Connection::open(config.state_db_path()).unwrap();
+    let count: i64 = conn
+        .query_row(
+            "SELECT COUNT(*) FROM trace_archives WHERE id = 'hs_dup'",
+            [],
+            |row| row.get(0),
+        )
+        .unwrap();
+    assert_eq!(count, 1);
+}
