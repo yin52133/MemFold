@@ -78,6 +78,7 @@ During work
   -> hook/turn_end captures filtered promotable=0 summaries
   -> skills/tools explicitly call write-evidence/search/feedback
   -> user raw_text is only stored when the caller explicitly provides it
+  -> startup injection deduplicates identical memory text across user/project scopes
 
 Session end
   -> hook/session_end writes final session summary

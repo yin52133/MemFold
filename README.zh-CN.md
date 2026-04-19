@@ -78,6 +78,7 @@ Codex session start
   -> hook/turn_end 记录 promotable=0 的过滤摘要
   -> skill/tool 在需要时写 promotable=1 / search / feedback
   -> 只有调用方显式提供时才保存 user `raw_text`
+  -> 启动注入会跨 user/project scope 去重相同正文
 
 session 结束
   -> hook/session_end 写 session 摘要
