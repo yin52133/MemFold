@@ -8,6 +8,8 @@ use memfold::feedback::apply_feedback;
 use memfold::history::{SummarizeHistoryInput, summarize_history};
 use memfold::init::initialize_root;
 use memfold::qmd_adapter::load_scope_records;
+use memfold::retrieval::search_memories;
+use memfold::domain::Intent;
 use rusqlite::{params, Connection};
 use tempfile::TempDir;
 
@@ -287,6 +289,50 @@ fn feedback_reject_does_not_duplicate_tombstones_for_same_claim() {
         )
         .unwrap();
     assert_eq!(tombstone_count, 1);
+}
+
+#[test]
+fn rejected_claims_do_not_appear_in_search_results() {
+    let tmp = TempDir::new().unwrap();
+    let root = memfold_root(&tmp);
+    let config = MemfoldConfig::default_for_root(root.clone());
+    initialize_root(&config).unwrap();
+    let scope = ScopeRef::new(ScopeType::Project, "memfold").unwrap();
+
+    write_evidence(
+        &config,
+        &WriteEvidenceInput {
+            scope: scope.clone(),
+            session_id: "sess_rejected_search".to_string(),
+            source_kind: SourceKind::User,
+            summary: "用户要求默认用中文回答".to_string(),
+            raw_text: Some("以后默认用中文回答。".to_string()),
+            promotable: true,
+            origin_mode: Mode::Normal,
+            claim_fingerprint: Some("cfp_rejected_search".to_string()),
+        },
+    )
+    .unwrap();
+
+    let run = run_dream(&config, &scope, "manual").unwrap();
+    assert_eq!(run.promoted, 1);
+
+    let before = search_memories(&config, &scope, Intent::Continue, "默认用中文", 80).unwrap();
+    assert!(!before.results.is_empty());
+
+    let feedback = apply_feedback(
+        &config,
+        &scope,
+        "cfp_rejected_search",
+        "rejected",
+        "这条记忆不对",
+        Some("sess_rejected_search"),
+    )
+    .unwrap();
+    assert!(feedback.updated);
+
+    let after = search_memories(&config, &scope, Intent::Continue, "默认用中文", 80).unwrap();
+    assert!(after.results.is_empty());
 }
 
 #[test]

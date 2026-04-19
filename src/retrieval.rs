@@ -1,3 +1,4 @@
+use rusqlite::{params, Connection};
 use serde::Serialize;
 use std::collections::{HashMap, HashSet};
 
@@ -6,6 +7,7 @@ use crate::domain::Intent;
 use crate::domain::ScopeRef;
 use crate::error::{Error, Result};
 use crate::qmd_adapter::{embed_query, load_scope_records, sync_scope, QmdRecord};
+use crate::state::schema;
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize)]
 pub struct SearchResult {
@@ -39,7 +41,17 @@ pub fn search_memories(
         sync_scope(config, scope)?;
     }
 
-    let records = load_scope_records(config, scope)?;
+    let tombstoned_claims = load_tombstoned_claims(config, scope)?;
+    let records = load_scope_records(config, scope)?
+        .into_iter()
+        .filter(|record| {
+            record
+                .claim_fingerprint
+                .as_ref()
+                .map(|fingerprint| !tombstoned_claims.contains(fingerprint))
+                .unwrap_or(true)
+        })
+        .collect::<Vec<_>>();
     let query_tokens = normalize_tokens(query);
     let query_embedding = query_embedding(config, query);
     let mut scores = records
@@ -242,4 +254,22 @@ fn cosine_similarity(left: &[f32], right: &[f32]) -> f32 {
 
 fn query_embedding(config: &MemfoldConfig, query: &str) -> Option<Vec<f32>> {
     embed_query(config, query).ok().flatten()
+}
+
+fn load_tombstoned_claims(config: &MemfoldConfig, scope: &ScopeRef) -> Result<HashSet<String>> {
+    let db_path = config.state_db_path();
+    MemfoldConfig::ensure_parent_dir(&db_path)?;
+    let conn = Connection::open(db_path)?;
+    schema::apply_schema(&conn)?;
+    let mut stmt = conn.prepare(
+        "SELECT claim_fingerprint
+         FROM tombstones
+         WHERE scope_type = ?1 AND scope_id = ?2",
+    )?;
+    let rows = stmt.query_map(
+        params![scope.scope_type.as_str(), &scope.scope_id],
+        |row| row.get::<_, String>(0),
+    )?;
+    let claims = rows.collect::<rusqlite::Result<Vec<_>>>()?;
+    Ok(claims.into_iter().collect())
 }
