@@ -519,6 +519,34 @@ revision: 1\n\n\
     assert_eq!(result.results[0].summary, "用户要求默认中文");
 }
 
+#[test]
+fn search_memories_ignores_cjk_punctuation_during_lexical_match() {
+    let (_tmp, config) = init_config();
+    let scope = ScopeRef::new(ScopeType::Project, "memfold").unwrap();
+
+    write_evidence(
+        &config,
+        &WriteEvidenceInput {
+            scope: scope.clone(),
+            session_id: "sess_cjk_punct".to_string(),
+            source_kind: SourceKind::User,
+            summary: "用户要求默认中文".to_string(),
+            raw_text: Some("以后不要英文，直接用中文回答我。".to_string()),
+            promotable: true,
+            origin_mode: Mode::Normal,
+            claim_fingerprint: Some("cfp_cjk_punct".to_string()),
+        },
+    )
+    .unwrap();
+
+    sync_scope(&config, &scope).unwrap();
+    let result =
+        search_memories(&config, &scope, Intent::Continue, "不要英文直接用中文", 80).unwrap();
+
+    assert_eq!(result.results.len(), 1);
+    assert_eq!(result.results[0].source_type, "session_log");
+}
+
 fn write_qmd_records(
     config: &MemfoldConfig,
     scope: &ScopeRef,

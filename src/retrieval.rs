@@ -133,7 +133,7 @@ fn score_record(record: &QmdRecord, query_tokens: &[String], query_embedding: Op
         .map(|raw| format!("{} {}", record.summary, raw))
         .unwrap_or_else(|| record.summary.clone());
     let haystack = normalize_tokens(&search_text);
-    let summary_lower = search_text.to_lowercase();
+    let summary_lower = normalized_search_text(&search_text);
     let lexical = query_tokens
         .iter()
         .filter(|token| {
@@ -186,10 +186,19 @@ fn source_priority(source_type: &str, intent: Intent) -> u8 {
 }
 
 fn normalize_tokens(text: &str) -> Vec<String> {
-    text.split(|ch: char| ch.is_whitespace() || ch.is_ascii_punctuation())
-        .filter(|part| !part.trim().is_empty())
-        .map(|part| part.trim().to_lowercase())
-        .collect()
+    let mut tokens = Vec::new();
+    let mut current = String::new();
+    for ch in text.chars() {
+        if ch.is_alphanumeric() {
+            current.extend(ch.to_lowercase());
+        } else if !current.is_empty() {
+            tokens.push(std::mem::take(&mut current));
+        }
+    }
+    if !current.is_empty() {
+        tokens.push(current);
+    }
+    tokens
 }
 
 fn estimate_tokens(text: &str) -> usize {
@@ -203,6 +212,13 @@ fn canonical_summary_key(text: &str) -> String {
         .join(" ")
         .trim()
         .to_lowercase()
+}
+
+fn normalized_search_text(text: &str) -> String {
+    text.chars()
+        .filter(|ch| ch.is_alphanumeric())
+        .flat_map(|ch| ch.to_lowercase())
+        .collect()
 }
 
 fn cosine_similarity(left: &[f32], right: &[f32]) -> f32 {
