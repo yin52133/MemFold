@@ -591,7 +591,7 @@ fn search_memories_prefers_exact_hyphenated_token_match_over_generic_history_hit
     sync_scope(&config, &scope).unwrap();
     let result = search_memories(&config, &scope, Intent::Continue, "verify-token-abc123", 80).unwrap();
 
-    assert!(!result.results.is_empty());
+    assert_eq!(result.results.len(), 1);
     assert_eq!(result.results[0].source_type, "session_log");
     assert_eq!(result.results[0].summary, "MemFold hook verify verify-token-abc123");
 }

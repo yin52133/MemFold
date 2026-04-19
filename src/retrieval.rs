@@ -110,6 +110,10 @@ pub fn search_memories(
         .into_iter()
         .filter(|record| scores.get(&record.doc_id).copied().unwrap_or(0) > 0)
         .collect::<Vec<_>>();
+    let has_exact_match = exact_matches.values().any(|matched| *matched);
+    if has_exact_match {
+        records.retain(|record| exact_matches.get(&record.doc_id).copied().unwrap_or(false));
+    }
     records.sort_by(|left, right| {
         let left_key = (
             std::cmp::Reverse(exact_matches.get(&left.doc_id).copied().unwrap_or(false)),
