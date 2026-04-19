@@ -141,6 +141,15 @@ INSERT INTO evidence_items (
         .unwrap();
     assert_eq!(migrated_count, 1);
 
+    let migrated_raw_text: Option<String> = conn
+        .query_row(
+            "SELECT raw_text FROM session_log_entries WHERE id = 'ev_legacy'",
+            [],
+            |row| row.get(0),
+        )
+        .unwrap();
+    assert_eq!(migrated_raw_text, None);
+
     let legacy_count: i64 = conn
         .query_row(
             "SELECT COUNT(*) FROM evidence_items WHERE id = 'ev_legacy'",
