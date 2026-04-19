@@ -515,10 +515,16 @@ fn clean_session_logs(config: &MemfoldConfig, scope: &ScopeRef) -> Result<()> {
 
         let contents = fs::read_to_string(&session_log_path)?;
         let mut kept = Vec::new();
+        let mut seen_evidence_ids = HashSet::new();
         for line in contents.lines().filter(|line| !line.trim().is_empty()) {
             let mut value: Value = serde_json::from_str(line)?;
             let summary = value["summary"].as_str().unwrap_or_default().to_string();
             if is_memory_noise(&summary) {
+                continue;
+            }
+
+            let evidence_id = value["evidence_id"].as_str().unwrap_or_default().to_string();
+            if !evidence_id.is_empty() && !seen_evidence_ids.insert(evidence_id) {
                 continue;
             }
 

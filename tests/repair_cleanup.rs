@@ -106,3 +106,43 @@ fn repair_rebuilds_session_end_timestamps_from_session_logs() {
     assert_eq!(session.0, "2026-04-12T18:00:00Z");
     assert_eq!(session.1, "2026-04-12T18:05:00Z");
 }
+
+#[test]
+fn repair_merges_alias_session_logs_without_duplicate_evidence_ids() {
+    let tmp = TempDir::new().unwrap();
+    let root = memfold_root(&tmp);
+    let config = MemfoldConfig::default_for_root(root.clone());
+    initialize_root(&config).unwrap();
+
+    let canonical_session_dir = root
+        .join("memory")
+        .join("repos")
+        .join("memfold")
+        .join("sessions")
+        .join("sess_dup");
+    let alias_session_dir = root
+        .join("memory")
+        .join("repos")
+        .join("MemFold")
+        .join("sessions")
+        .join("sess_dup");
+    fs::create_dir_all(&canonical_session_dir).unwrap();
+    fs::create_dir_all(&alias_session_dir).unwrap();
+
+    let canonical_line = "{\"evidence_id\":\"ev_dup\",\"scope\":{\"type\":\"project\",\"id\":\"memfold\"},\"session_id\":\"sess_dup\",\"source_kind\":\"user\",\"summary\":\"用户要求默认中文\",\"raw_text\":\"以后默认用中文回答\",\"promotable\":true,\"origin_mode\":\"normal\",\"claim_fingerprint\":\"cfp_dup\",\"created_at\":\"2026-04-12T18:00:00Z\"}\n";
+    let alias_line = "{\"evidence_id\":\"ev_dup\",\"scope\":{\"type\":\"project\",\"id\":\"MemFold\"},\"session_id\":\"sess_dup\",\"source_kind\":\"user\",\"summary\":\"用户要求默认中文\",\"raw_text\":\"以后默认用中文回答\",\"promotable\":true,\"origin_mode\":\"normal\",\"claim_fingerprint\":\"cfp_dup\",\"created_at\":\"2026-04-12T18:00:00Z\"}\n";
+    fs::write(canonical_session_dir.join("session_log.jsonl"), canonical_line).unwrap();
+    fs::write(alias_session_dir.join("session_log.jsonl"), alias_line).unwrap();
+
+    run_repair(&config, None).unwrap();
+
+    let conn = Connection::open(config.state_db_path()).unwrap();
+    let count: i64 = conn
+        .query_row(
+            "SELECT COUNT(*) FROM session_log_entries WHERE id = 'ev_dup'",
+            [],
+            |row| row.get(0),
+        )
+        .unwrap();
+    assert_eq!(count, 1);
+}
