@@ -26,8 +26,10 @@ if [[ "${VERIFY_SCOPE_TYPE}" == "project" ]]; then
   VERIFY_SCOPE_DIR_ID="$(printf '%s' "${VERIFY_SCOPE_ID}" | tr '[:upper:]' '[:lower:]')"
   VERIFY_SCOPE_FRAGMENT="repos/${VERIFY_SCOPE_DIR_ID}"
 else
+  VERIFY_SCOPE_DIR_ID="${VERIFY_SCOPE_ID}"
   VERIFY_SCOPE_FRAGMENT="user"
 fi
+VERIFY_SCOPE_KEY="${VERIFY_SCOPE_TYPE}:${VERIFY_SCOPE_DIR_ID}"
 VERIFY_SESSION_ROOT="${MEMFOLD_HOME}/memory/${VERIFY_SCOPE_FRAGMENT}/sessions"
 
 fatal() {
@@ -221,7 +223,7 @@ sqlite3 "${MEMFOLD_DB}" \
   >/dev/null
 
 sqlite3 "${MEMFOLD_DB}" \
-  "DELETE FROM mutations WHERE status='fully_applied' AND target_ref LIKE '%verify_%';" \
+  "DELETE FROM mutations WHERE status='fully_applied' AND target_ref LIKE '${VERIFY_SCOPE_KEY}::verify_%';" \
   >/dev/null
 
 echo "[verify] ok: launcher, hooks, qmd sync, and search all passed"
