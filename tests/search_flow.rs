@@ -596,6 +596,52 @@ fn search_memories_prefers_exact_hyphenated_token_match_over_generic_history_hit
     assert_eq!(result.results[0].summary, "MemFold hook verify verify-token-abc123");
 }
 
+#[test]
+fn search_memories_keeps_related_non_exact_results_for_natural_language_queries() {
+    let (_tmp, config) = init_config();
+    let scope = ScopeRef::new(ScopeType::Project, "memfold").unwrap();
+
+    let history_dir = config
+        .root
+        .join("memory")
+        .join("repos")
+        .join("memfold")
+        .join("history")
+        .join("daily");
+    fs::create_dir_all(&history_dir).unwrap();
+    fs::write(
+        history_dir.join("2026-04-19.md"),
+        concat!(
+            "<!-- session: hist_1 | summary_id: hs_1 -->\n",
+            "## 2026-04-19T12:00:00Z [manual] respond in chinese by default\n",
+            "- [decision] respond in chinese by default\n"
+        ),
+    )
+    .unwrap();
+
+    write_evidence(
+        &config,
+        &WriteEvidenceInput {
+            scope: scope.clone(),
+            session_id: "sess_natural_query".to_string(),
+            source_kind: SourceKind::User,
+            summary: "answer in chinese".to_string(),
+            raw_text: Some("answer in chinese".to_string()),
+            promotable: true,
+            origin_mode: Mode::Normal,
+            claim_fingerprint: Some("cfp_natural_query".to_string()),
+        },
+    )
+    .unwrap();
+
+    sync_scope(&config, &scope).unwrap();
+    let result = search_memories(&config, &scope, Intent::Continue, "answer in chinese", 80).unwrap();
+
+    assert!(result.results.len() >= 2);
+    assert_eq!(result.results[0].summary, "answer in chinese");
+    assert!(result.results.iter().any(|item| item.summary.contains("respond in chinese by default")));
+}
+
 fn write_qmd_records(
     config: &MemfoldConfig,
     scope: &ScopeRef,

@@ -111,7 +111,7 @@ pub fn search_memories(
         .filter(|record| scores.get(&record.doc_id).copied().unwrap_or(0) > 0)
         .collect::<Vec<_>>();
     let has_exact_match = exact_matches.values().any(|matched| *matched);
-    if has_exact_match {
+    if has_exact_match && is_token_like_query(query) {
         records.retain(|record| exact_matches.get(&record.doc_id).copied().unwrap_or(false));
     }
     records.sort_by(|left, right| {
@@ -270,6 +270,16 @@ fn exact_match_bonus(search_text: &str, query: &str) -> usize {
     } else {
         0
     }
+}
+
+fn is_token_like_query(query: &str) -> bool {
+    let trimmed = query.trim();
+    !trimmed.is_empty()
+        && (trimmed.chars().any(|ch| ch.is_ascii_digit())
+            || trimmed.contains('-')
+            || trimmed.contains('_')
+            || trimmed.contains('/')
+            || trimmed.contains(':'))
 }
 
 fn cosine_similarity(left: &[f32], right: &[f32]) -> f32 {
