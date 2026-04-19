@@ -30,6 +30,7 @@ fn verify_script_checks_launcher_hook_and_search_health() {
     assert!(script.contains("verify_launcher_*"));
     assert!(script.contains("verify_memory_*"));
     assert!(script.contains("DELETE FROM tombstones"));
+    assert!(script.contains("DELETE FROM mutations"));
     assert!(script.contains("42"));
 }
 
