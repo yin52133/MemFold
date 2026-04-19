@@ -91,6 +91,7 @@ user asks "is this really what I said?"
 - `normal`：用户 + repo
 - `fresh`：只读用户
 - `sterile`：不读任何记忆层
+- 如果 `user + repo` 最终正文完全相同，启动注入只保留一份正文，避免重复占用 token
 
 检索预算作用于：
 - 返回条目数
@@ -112,6 +113,11 @@ Capability: startup only loads minimal context
 Failure example: family/shared items被默认注入启动上下文  
 Expected: startup item set only contains `user + repo` boot items  
 Completion signal: startup family injection rate = 0
+
+Capability: startup does not duplicate identical prose across scopes
+Failure example: user boot 和 repo boot 各有一条正文完全相同的 memory，启动时被注入两次
+Expected: identical injected text is deduplicated before entering startup context
+Completion signal: duplicate startup text block count = 0
 
 Capability: trace can verify promoted user claims  
 Failure example: stable 中存在用户偏好，但无法回到原始 user entry  

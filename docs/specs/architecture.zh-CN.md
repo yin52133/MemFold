@@ -164,6 +164,11 @@ Failure example: same repo snapshot returns different boot items across consecut
 Expected: same `mode + scope + intent` returns same item set and order  
 Completion signal: two consecutive `load` calls return byte-identical item lists
 
+Capability: exact token retrieval beats generic history overlap
+Failure example: searching for a long token-like query returns old generic history rows before the exact fresh hook/session hit
+Expected: once an exact token match exists, retrieval prioritizes exact hits and can narrow the result set to those hits
+Completion signal: exact-token miss / mis-rank rate = 0
+
 Capability: user quote trace is verifiable  
 Failure example: history/stable claims a user preference, but no raw user entry can be found  
 Expected: every promoted user preference can be traced back to a `session_log` user entry  
