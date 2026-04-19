@@ -114,7 +114,7 @@ user mentions repo / project / directory
 ## 8. Failure Cases and Acceptance
 
 Capability: family memory does not leak into startup  
-Failure example: `sata_coin` family rule appears automatically in unrelated repo startup items  
+Failure example: `family-alpha` rule appears automatically in unrelated repo startup items  
 Expected: family only appears in retrieval results  
 Completion signal: family startup injection rate = 0
 

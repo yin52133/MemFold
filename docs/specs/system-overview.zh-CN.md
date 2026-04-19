@@ -84,7 +84,7 @@ memory/repos/<repo_id>/boot/bundle.md
 ## 7. 自动路由规则
 
 - `repo_id` 必须来自稳定 git 身份，不能继续用目录 basename。
-- `family scope` 由全局路径/仓库路由规则自动识别，例如 `sata_coin`、`sata_stock`。
+- `family scope` 由全局路径/仓库路由规则自动识别，例如 `family-alpha`、`family-beta`。
 - 当用户提到某个目录、repo、项目名时，检索联查 `repo + family + user`。
 
 ## 8. 一句话分类标准

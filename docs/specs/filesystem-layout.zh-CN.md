@@ -90,8 +90,8 @@ MemFold 的运行根目录固定为：
 ### 4.2 `family-id`
 
 `family-id` 由全局路由规则自动匹配，例如：
-- `sata_coin`
-- `sata_stock`
+- `family-alpha`
+- `family-beta`
 
 `family` 不应依赖每个 repo 自己维护临时声明文件。
 
