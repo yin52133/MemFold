@@ -236,7 +236,7 @@ Behavior:
 - startup now compensates with `dream maybe-run` and `qmd sync` for work that may have been missed at exit time
 - shipped `turn_end.sh` is refreshed by deploy, but current host-side per-turn attachment is still separate from plugin installation
 - plugin installation alone is not the full deployment path
-- verify now exercises a raw-text memory round-trip (`write-evidence -> dream run -> search`) and cleans up its own smoke memory and verify session directories before the final repair pass
+- verify now exercises a raw-text memory round-trip (`write-evidence -> dream run -> search`) and cleans up its own smoke memory, verify session/history residue, and verify mutation rows before the final repair pass
 - repeated deploy/verify runs are now expected to stay idempotent rather than accumulating smoke memory residue
 
 ## Validation
