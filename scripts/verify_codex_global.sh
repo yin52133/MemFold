@@ -216,4 +216,8 @@ if ! "${MEMFOLD_BIN}" --root "${MEMFOLD_HOME}" repair \
   repair_needed "repair cleanup failed for verify memory"
 fi
 
+sqlite3 "${MEMFOLD_DB}" \
+  "DELETE FROM tombstones WHERE scope_type='${VERIFY_SCOPE_TYPE}' AND scope_id='${VERIFY_SCOPE_DIR_ID:-${VERIFY_SCOPE_ID}}' AND claim_fingerprint='${VERIFY_MEMORY_CLAIM}';" \
+  >/dev/null
+
 echo "[verify] ok: launcher, hooks, qmd sync, and search all passed"
