@@ -46,7 +46,7 @@ host / operator
 
 1. **What:** Dreaming 先读 `stable`，再读 `history`，最后按需窄读 `session_log`。 **Why:** `history` 是低成本信号层，`session_log` 是高成本证据层。 **Reversal condition:** 如果 `history` 无法提供足够信号。
 2. **What:** `history` 不再作为逐条镜像输入。 **Why:** 否则 dreaming 只是重新扫描另一份会话日志副本。 **Reversal condition:** 如果丢失逐条镜像会明显降低准确率。
-3. **What:** 提升到 `stable` 的用户偏好必须能追溯到原始 user `session_log` entry。 **Why:** 否则无法验证“是不是用户真说过”。 **Reversal condition:** 如果系统接受 summary-only 的不可验证提升。
+3. **What:** 提升到 `stable` 的用户偏好必须带显式 `raw_text` 证据，而不是由 summary 反推。 **Why:** 否则无法验证“是不是用户真说过”。 **Reversal condition:** 如果系统接受 summary-only 的不可验证提升。
 4. **What:** `claim_fingerprint` 继续作为 tombstone 的语义键，但不再要求出现在人读 Markdown 中。 **Why:** 它是决策约束，不是人读正文。 **Reversal condition:** 如果 repair 必须依赖 Markdown 里的完整指纹。
 
 ## 6. Runtime Flows
@@ -83,6 +83,7 @@ candidate from session_log/history
   └──► check tombstone
           ├── hit ──► discard
           └── miss ──► check stability rules
+                          ├── user claim with no explicit raw_text ──► discard
                           ├── stable preference / repeated constraint ──► keep
                           ├── weak single-session signal ──► hold
                           ├── conflict with long-term memory ──► quarantine
@@ -136,7 +137,7 @@ named errors:
 
 Capability: promoted user preferences are traceable  
 Failure example: `stable` contains a user preference but no raw user entry exists in session_log  
-Expected: every promoted user-origin item resolves to one raw user message  
+Expected: every promoted user-origin item resolves to one explicit raw user message  
 Completion signal: trace miss rate for promoted user-origin items = 0
 
 Capability: history is sufficient as first gather layer  
@@ -148,6 +149,11 @@ Capability: tombstones block re-promotion
 Failure example: rejected claim returns with different wording  
 Expected: fingerprint match blocks stable write  
 Completion signal: tombstone bypass rate = 0
+
+Capability: repair does not resurrect rejected memory
+Failure example: a tombstoned claim disappears from SQLite state but survives in `stable` markdown / boot / qmd and returns after repair
+Expected: repair removes tombstoned stable blocks and rebuilt sidecars continue to exclude the rejected claim
+Completion signal: tombstoned-claim resurrection rate after repair = 0
 
 ## 9. Implementation Phases
 
