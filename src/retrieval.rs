@@ -58,12 +58,10 @@ pub fn search_memories(
     let mut exact_matches = records
         .iter()
         .map(|record| {
-            let search_text = record
-                .raw_text
-                .as_deref()
-                .map(|raw| format!("{} {}", record.summary, raw))
-                .unwrap_or_else(|| record.summary.clone());
-            (record.doc_id.clone(), exact_match_bonus(&search_text, query) > 0)
+            (
+                record.doc_id.clone(),
+                exact_match_bonus(&record.summary, record.raw_text.as_deref(), query) > 0,
+            )
         })
         .collect::<HashMap<_, _>>();
     let mut scores = records
@@ -170,16 +168,34 @@ fn score_record(
         .as_deref()
         .map(|raw| format!("{} {}", record.summary, raw))
         .unwrap_or_else(|| record.summary.clone());
-    let exact_bonus = exact_match_bonus(&search_text, query);
+    let exact_bonus = exact_match_bonus(&record.summary, record.raw_text.as_deref(), query);
     let haystack = normalize_tokens(&search_text);
-    let summary_lower = normalized_search_text(&search_text);
+    let normalized_summary = normalized_search_text(&record.summary);
+    let normalized_raw = record.raw_text.as_deref().map(normalized_search_text);
+    let normalized_query = normalized_search_text(query);
     let lexical = query_tokens
         .iter()
         .filter(|token| {
             haystack.iter().any(|candidate| candidate == *token)
-                || summary_lower.contains(token.as_str())
+                || normalized_summary.contains(token.as_str())
+                || normalized_raw
+                    .as_deref()
+                    .map(|raw| raw.contains(token.as_str()))
+                    .unwrap_or(false)
         })
         .count();
+    let lexical = if lexical == 0
+        && !normalized_query.is_empty()
+        && (normalized_summary.contains(&normalized_query)
+            || normalized_raw
+                .as_deref()
+                .map(|raw| raw.contains(&normalized_query))
+                .unwrap_or(false))
+    {
+        1
+    } else {
+        lexical
+    };
 
     let semantic = match (&record.embedding, query_embedding) {
         (Some(doc), Some(query)) => {
@@ -259,12 +275,19 @@ fn normalized_search_text(text: &str) -> String {
         .collect()
 }
 
-fn exact_match_bonus(search_text: &str, query: &str) -> usize {
+fn exact_match_bonus(summary: &str, raw_text: Option<&str>, query: &str) -> usize {
     let raw_query = query.trim().to_lowercase();
     let normalized_query = normalized_search_text(query);
-    let raw_match = !raw_query.is_empty() && search_text.to_lowercase().contains(&raw_query);
-    let normalized_match =
-        normalized_query.len() >= 6 && normalized_search_text(search_text).contains(&normalized_query);
+    let raw_match = !raw_query.is_empty()
+        && (summary.to_lowercase().contains(&raw_query)
+            || raw_text
+                .map(|raw| raw.to_lowercase().contains(&raw_query))
+                .unwrap_or(false));
+    let normalized_match = normalized_query.len() >= 6
+        && (normalized_search_text(summary).contains(&normalized_query)
+            || raw_text
+                .map(|raw| normalized_search_text(raw).contains(&normalized_query))
+                .unwrap_or(false));
     if raw_match || normalized_match {
         100
     } else {

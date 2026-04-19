@@ -677,6 +677,31 @@ fn search_memories_keeps_related_non_exact_results_for_natural_language_queries(
     assert!(result.results.iter().any(|item| item.summary.contains("respond in chinese by default")));
 }
 
+#[test]
+fn search_memories_does_not_treat_summary_raw_text_boundary_as_exact_match() {
+    let (_tmp, config) = init_config();
+    let scope = ScopeRef::new(ScopeType::Project, "memfold").unwrap();
+
+    write_evidence(
+        &config,
+        &WriteEvidenceInput {
+            scope: scope.clone(),
+            session_id: "sess_boundary_match".to_string(),
+            source_kind: SourceKind::User,
+            summary: "alpha".to_string(),
+            raw_text: Some("beta".to_string()),
+            promotable: false,
+            origin_mode: Mode::Normal,
+            claim_fingerprint: None,
+        },
+    )
+    .unwrap();
+
+    sync_scope(&config, &scope).unwrap();
+    let result = search_memories(&config, &scope, Intent::Continue, "alphabeta", 80).unwrap();
+    assert!(result.results.is_empty());
+}
+
 fn write_qmd_records(
     config: &MemfoldConfig,
     scope: &ScopeRef,
