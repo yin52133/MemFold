@@ -14,8 +14,13 @@ VERIFY_SCOPE_ID="${MEMFOLD_SCOPE_ID:-$(basename "$(pwd)")}"
 VERIFY_SUFFIX="$(date +%s)_$$"
 LAUNCHER_SESSION_ID="verify_launcher_${VERIFY_SUFFIX}"
 HOOK_SESSION_ID="verify_hook_${VERIFY_SUFFIX}"
+MEMORY_SESSION_ID="verify_memory_${VERIFY_SUFFIX}"
 SEARCH_TOKEN="verify-token-${VERIFY_SUFFIX}"
 TURN_SUMMARY="MemFold verify turn ${SEARCH_TOKEN}"
+VERIFY_MEMORY_SUMMARY="用户要求默认中文"
+VERIFY_MEMORY_RAW_TEXT="以后默认用中文回答，而且直接指出我哪里说错了。"
+VERIFY_MEMORY_QUERY="默认用中文回答而且直接指出我哪里说错了"
+VERIFY_MEMORY_CLAIM="cfp_verify_raw_trace"
 
 fatal() {
   echo "[verify] fatal: $*" >&2
@@ -131,6 +136,53 @@ sys.exit(1)
 PY
 then
   repair_needed "search did not return the newly indexed session_log entry"
+fi
+
+if ! "${MEMFOLD_BIN}" --root "${MEMFOLD_HOME}" write-evidence \
+  --scope-type "${VERIFY_SCOPE_TYPE}" \
+  --scope-id "${VERIFY_SCOPE_ID}" \
+  --session-id "${MEMORY_SESSION_ID}" \
+  --source-kind user \
+  --summary "${VERIFY_MEMORY_SUMMARY}" \
+  --raw-text "${VERIFY_MEMORY_RAW_TEXT}" \
+  --promotable 1 \
+  --origin-mode normal \
+  --claim-fingerprint "${VERIFY_MEMORY_CLAIM}" >/tmp/memfold_verify_memory.json; then
+  repair_needed "write-evidence failed for raw_text verify path"
+fi
+
+if ! "${MEMFOLD_BIN}" --root "${MEMFOLD_HOME}" dream run \
+  --scope-type "${VERIFY_SCOPE_TYPE}" \
+  --scope-id "${VERIFY_SCOPE_ID}" \
+  --trigger manual >/tmp/memfold_verify_dream.json; then
+  repair_needed "dream run failed during raw_text verify path"
+fi
+
+if ! raw_search_output="$("${MEMFOLD_BIN}" --root "${MEMFOLD_HOME}" search \
+  --scope-type "${VERIFY_SCOPE_TYPE}" \
+  --scope-id "${VERIFY_SCOPE_ID}" \
+  --intent continue \
+  --query "${VERIFY_MEMORY_QUERY}" \
+  --budget 120)"; then
+  repair_needed "raw_text search failed during verify"
+fi
+
+raw_search_json="$(printf '%s\n' "${raw_search_output}" | tail -n 1)"
+
+if ! SEARCH_JSON="${raw_search_json}" python3 - "${VERIFY_MEMORY_SUMMARY}" <<'PY'
+import json
+import os
+import sys
+
+summary = sys.argv[1]
+payload = json.loads(os.environ["SEARCH_JSON"])
+for item in payload.get("results", []):
+    if item.get("summary") == summary:
+        sys.exit(0)
+sys.exit(1)
+PY
+then
+  repair_needed "raw_text search did not resolve back to the stored memory"
 fi
 
 echo "[verify] ok: launcher, hooks, qmd sync, and search all passed"

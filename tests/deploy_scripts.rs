@@ -18,6 +18,9 @@ fn verify_script_checks_launcher_hook_and_search_health() {
     assert!(script.contains("cdx-memfold"));
     assert!(script.contains("hooks/turn_end.sh"));
     assert!(script.contains(" search "));
+    assert!(script.contains("write-evidence"));
+    assert!(script.contains("--raw-text"));
+    assert!(script.contains("dream run"));
     assert!(script.contains("42"));
 }
 
