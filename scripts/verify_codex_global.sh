@@ -16,7 +16,7 @@ LAUNCHER_SESSION_ID="verify_launcher_${VERIFY_SUFFIX}"
 HOOK_SESSION_ID="verify_hook_${VERIFY_SUFFIX}"
 MEMORY_SESSION_ID="verify_memory_${VERIFY_SUFFIX}"
 SEARCH_TOKEN="verify-token-${VERIFY_SUFFIX}"
-TURN_SUMMARY="MemFold verify turn ${SEARCH_TOKEN}"
+HOOK_SUMMARY="MemFold hook verify ${SEARCH_TOKEN}"
 LAUNCHER_SUMMARY="MemFold launcher verify ${VERIFY_SUFFIX}"
 VERIFY_MEMORY_SUMMARY="用户要求默认中文"
 VERIFY_MEMORY_RAW_TEXT="以后默认用中文回答，而且直接指出我哪里说错了。"
@@ -100,11 +100,11 @@ MEMFOLD_SCOPE_TYPE="${VERIFY_SCOPE_TYPE}" \
 MEMFOLD_SCOPE_ID="${VERIFY_SCOPE_ID}" \
 MEMFOLD_SESSION_ID="${HOOK_SESSION_ID}" \
 MEMFOLD_SOURCE_KIND=decision \
-MEMFOLD_TURN_SUMMARY="${TURN_SUMMARY}" \
+MEMFOLD_TURN_SUMMARY="${HOOK_SUMMARY}" \
 MEMFOLD_STATE_CHANGED=1 \
 "${MEMFOLD_HOME}/hooks/turn_end.sh" >/dev/null
 
-hook_count="$(sqlite_single_value "SELECT COUNT(*) FROM session_log_entries WHERE session_id = '${HOOK_SESSION_ID}' AND summary = '${TURN_SUMMARY}'")"
+hook_count="$(sqlite_single_value "SELECT COUNT(*) FROM session_log_entries WHERE session_id = '${HOOK_SESSION_ID}' AND summary = '${HOOK_SUMMARY}'")"
 [[ "${hook_count}" -ge 1 ]] || repair_needed "turn_end hook did not persist the expected session_log row"
 
 if ! "${MEMFOLD_BIN}" --root "${MEMFOLD_HOME}" qmd sync \

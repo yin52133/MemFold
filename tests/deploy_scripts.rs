@@ -22,6 +22,7 @@ fn verify_script_checks_launcher_hook_and_search_health() {
     assert!(script.contains("--raw-text"));
     assert!(script.contains("dream run"));
     assert!(script.contains("MEMFOLD_SESSION_SUMMARY"));
+    assert!(script.contains("HOOK_SUMMARY"));
     assert!(script.contains("42"));
 }
 
