@@ -402,6 +402,57 @@ fn rejected_claims_do_not_appear_in_search_results() {
 }
 
 #[test]
+fn rejected_claims_do_not_resurface_through_history_search() {
+    let tmp = TempDir::new().unwrap();
+    let root = memfold_root(&tmp);
+    let config = MemfoldConfig::default_for_root(root.clone());
+    initialize_root(&config).unwrap();
+    let scope = ScopeRef::new(ScopeType::Project, "memfold").unwrap();
+
+    write_evidence(
+        &config,
+        &WriteEvidenceInput {
+            scope: scope.clone(),
+            session_id: "sess_rejected_history".to_string(),
+            source_kind: SourceKind::User,
+            summary: "用户要求默认用中文回答".to_string(),
+            raw_text: Some("以后默认用中文回答。".to_string()),
+            promotable: true,
+            origin_mode: Mode::Normal,
+            claim_fingerprint: Some("cfp_rejected_history".to_string()),
+        },
+    )
+    .unwrap();
+
+    summarize_history(
+        &config,
+        &SummarizeHistoryInput {
+            scope: scope.clone(),
+            session_id: "sess_rejected_history".to_string(),
+            trigger: "session_end".to_string(),
+        },
+    )
+    .unwrap();
+
+    let run = run_dream(&config, &scope, "manual").unwrap();
+    assert_eq!(run.promoted, 1);
+
+    let feedback = apply_feedback(
+        &config,
+        &scope,
+        "cfp_rejected_history",
+        "rejected",
+        "这条记忆不对",
+        Some("sess_rejected_history"),
+    )
+    .unwrap();
+    assert!(feedback.updated);
+
+    let after = search_memories(&config, &scope, Intent::Continue, "默认用中文", 80).unwrap();
+    assert!(after.results.is_empty());
+}
+
+#[test]
 fn repair_rebuilds_trace_archives_projection() {
     let tmp = TempDir::new().unwrap();
     let root = memfold_root(&tmp);

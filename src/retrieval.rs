@@ -43,14 +43,21 @@ pub fn search_memories(
     }
 
     let tombstoned_claims = load_tombstoned_claims(config, scope)?;
+    let tombstoned_summaries = load_tombstoned_summaries(config, scope)?;
     let records = load_scope_records(config, scope)?
         .into_iter()
         .filter(|record| {
-            record
+            let fingerprint_ok = record
                 .claim_fingerprint
                 .as_ref()
                 .map(|fingerprint| !tombstoned_claims.contains(fingerprint))
-                .unwrap_or(true)
+                .unwrap_or(true);
+            let history_ok = if record.source_type == "history" {
+                !tombstoned_summaries.contains(&canonical_summary_key(&record.summary))
+            } else {
+                true
+            };
+            fingerprint_ok && history_ok
         })
         .collect::<Vec<_>>();
     let query_tokens = normalize_tokens(query);
@@ -344,4 +351,31 @@ fn load_tombstoned_claims(config: &MemfoldConfig, scope: &ScopeRef) -> Result<Ha
     )?;
     let claims = rows.collect::<rusqlite::Result<Vec<_>>>()?;
     Ok(claims.into_iter().collect())
+}
+
+fn load_tombstoned_summaries(config: &MemfoldConfig, scope: &ScopeRef) -> Result<HashSet<String>> {
+    let db_path = config.state_db_path();
+    MemfoldConfig::ensure_parent_dir(&db_path)?;
+    let conn = Connection::open(db_path)?;
+    schema::apply_schema(&conn)?;
+    let mut stmt = conn.prepare(
+        "SELECT DISTINCT summary
+         FROM session_log_entries
+         WHERE scope_type = ?1
+           AND scope_id = ?2
+           AND claim_fingerprint IN (
+             SELECT claim_fingerprint
+             FROM tombstones
+             WHERE scope_type = ?1 AND scope_id = ?2
+           )",
+    )?;
+    let rows = stmt.query_map(
+        params![scope.scope_type.as_str(), &scope.scope_id],
+        |row| row.get::<_, String>(0),
+    )?;
+    let summaries = rows.collect::<rusqlite::Result<Vec<_>>>()?;
+    Ok(summaries
+        .into_iter()
+        .map(|summary| canonical_summary_key(&summary))
+        .collect())
 }
