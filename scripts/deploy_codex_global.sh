@@ -122,6 +122,7 @@ marketplace.write_text(json.dumps(data, indent=2) + "\n")
 PY
 
 "${MEMFOLD_BIN_DIR}/memfold" --root "${MEMFOLD_HOME}" init >/dev/null
+"${MEMFOLD_BIN_DIR}/memfold" --root "${MEMFOLD_HOME}" repair >/dev/null
 if ! sync_known_scopes; then
   echo "[deploy] initial qmd sync failed; continuing to verify for repair gating" >&2
 fi

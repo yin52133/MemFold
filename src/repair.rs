@@ -1,13 +1,17 @@
+use std::collections::HashSet;
 use std::fs;
+use std::path::Path;
 
 use rusqlite::{params, Connection};
 use serde::Serialize;
+use serde_json::Value;
 use sha2::{Digest, Sha256};
 
 use crate::boot::compile_scope_bundle;
 use crate::config::MemfoldConfig;
 use crate::domain::{ScopeRef, ScopeType};
 use crate::error::Result;
+use crate::noise::is_memory_noise;
 use crate::qmd_adapter::sync_scope;
 use crate::state::schema;
 use crate::timestamps::now_rfc3339;
@@ -19,7 +23,10 @@ pub struct RepairResult {
 }
 
 pub fn run_repair(config: &MemfoldConfig, scope: Option<&ScopeRef>) -> Result<RepairResult> {
+    canonicalize_project_storage(config)?;
     let conn = open_connection(config)?;
+    canonicalize_project_scope_rows(&conn)?;
+    clean_dirty_memory_content(config, scope)?;
     let scopes = match scope {
         Some(scope) => vec![scope.clone()],
         None => discover_scopes(config)?,
@@ -41,6 +48,52 @@ pub fn run_repair(config: &MemfoldConfig, scope: Option<&ScopeRef>) -> Result<Re
     })
 }
 
+fn canonicalize_project_storage(config: &MemfoldConfig) -> Result<()> {
+    let repos_dir = config.root.join("memory").join("repos");
+    if !repos_dir.exists() {
+        return Ok(());
+    }
+
+    let mut repo_names = Vec::new();
+    for entry in fs::read_dir(&repos_dir)? {
+        let entry = entry?;
+        if entry.path().is_dir() {
+            repo_names.push(entry.file_name().to_string_lossy().to_string());
+        }
+    }
+    repo_names.sort();
+
+    for repo_name in repo_names {
+        let source = repos_dir.join(&repo_name);
+        if !source.exists() {
+            continue;
+        }
+
+        let canonical_name = repo_name.to_ascii_lowercase();
+        if canonical_name == repo_name {
+            continue;
+        }
+
+        let destination = repos_dir.join(&canonical_name);
+        merge_directory_contents(&source, &destination)?;
+        if source.exists() {
+            fs::remove_dir_all(&source)?;
+        }
+
+        let alias_qmd_dir = config
+            .root
+            .join("qmd")
+            .join("collections")
+            .join("repos")
+            .join(&repo_name);
+        if alias_qmd_dir.exists() {
+            fs::remove_dir_all(alias_qmd_dir)?;
+        }
+    }
+
+    Ok(())
+}
+
 fn discover_scopes(config: &MemfoldConfig) -> Result<Vec<ScopeRef>> {
     let mut scopes = vec![ScopeRef::new(ScopeType::User, "default")?];
     let repos_dir = config.root.join("memory").join("repos");
@@ -54,6 +107,98 @@ fn discover_scopes(config: &MemfoldConfig) -> Result<Vec<ScopeRef>> {
             scopes.push(ScopeRef::new(ScopeType::Project, project)?);
         }
     }
+    Ok(scopes)
+}
+
+fn canonicalize_project_scope_rows(conn: &Connection) -> Result<()> {
+    let mut stmt = conn.prepare(
+        "SELECT scope_id FROM memory_items WHERE scope_type = 'project'
+         UNION
+         SELECT scope_id FROM session_log_entries WHERE scope_type = 'project'
+         UNION
+         SELECT scope_id FROM trace_archives WHERE scope_type = 'project'
+         UNION
+         SELECT scope_id FROM boot_entries WHERE scope_type = 'project'
+         UNION
+         SELECT scope_id FROM sessions WHERE scope_type = 'project'
+         UNION
+         SELECT scope_id FROM dream_jobs WHERE scope_type = 'project'
+         UNION
+         SELECT scope_id FROM tombstones WHERE scope_type = 'project'",
+    )?;
+    let rows = stmt.query_map([], |row| row.get::<_, String>(0))?;
+    let scope_ids = rows.collect::<rusqlite::Result<Vec<_>>>()?;
+
+    for scope_id in scope_ids {
+        let canonical = scope_id.to_ascii_lowercase();
+        if canonical == scope_id {
+            continue;
+        }
+
+        for table in [
+            "memory_items",
+            "session_log_entries",
+            "trace_archives",
+            "boot_entries",
+            "sessions",
+            "dream_jobs",
+            "tombstones",
+        ] {
+            let sql = format!(
+                "UPDATE {table} SET scope_id = ?1 WHERE scope_type = 'project' AND scope_id = ?2"
+            );
+            conn.execute(&sql, params![&canonical, &scope_id])?;
+        }
+
+        let old_ref = format!("project:{scope_id}");
+        let new_ref = format!("project:{canonical}");
+        conn.execute(
+            "UPDATE mutations
+             SET target_ref = REPLACE(target_ref, ?1, ?2)
+             WHERE target_ref LIKE '%' || ?1 || '%'",
+            params![old_ref, new_ref],
+        )?;
+    }
+
+    Ok(())
+}
+
+fn clean_dirty_memory_content(config: &MemfoldConfig, scope: Option<&ScopeRef>) -> Result<()> {
+    let project_scopes = match scope {
+        Some(scope) if scope.scope_type == ScopeType::Project => vec![scope.clone()],
+        Some(_) => Vec::new(),
+        None => discover_project_scopes(config)?,
+    };
+
+    for scope in project_scopes {
+        clean_session_logs(config, &scope)?;
+        clean_history_files(config, &scope)?;
+    }
+
+    Ok(())
+}
+
+fn discover_project_scopes(config: &MemfoldConfig) -> Result<Vec<ScopeRef>> {
+    let repos_dir = config.root.join("memory").join("repos");
+    if !repos_dir.exists() {
+        return Ok(Vec::new());
+    }
+
+    let mut scopes = Vec::new();
+    let mut entries = Vec::new();
+    for entry in fs::read_dir(repos_dir)? {
+        let path = entry?.path();
+        if path.is_dir() {
+            entries.push(path);
+        }
+    }
+    entries.sort();
+
+    for entry in entries {
+        let scope_id = entry.file_name().unwrap().to_string_lossy().to_string();
+        scopes.push(ScopeRef::new(ScopeType::Project, scope_id)?);
+    }
+
     Ok(scopes)
 }
 
@@ -241,6 +386,217 @@ fn rebuild_trace_archives(config: &MemfoldConfig, conn: &Connection, scope: &Sco
     }
 
     Ok(count)
+}
+
+fn merge_directory_contents(source: &Path, destination: &Path) -> Result<()> {
+    if !source.exists() {
+        return Ok(());
+    }
+    fs::create_dir_all(destination)?;
+
+    let mut entries = Vec::new();
+    for entry in fs::read_dir(source)? {
+        entries.push(entry?.path());
+    }
+    entries.sort();
+
+    for path in entries {
+        let file_name = path.file_name().unwrap().to_os_string();
+        let destination_path = destination.join(file_name);
+        if path.is_dir() {
+            merge_directory_contents(&path, &destination_path)?;
+            if path.exists() {
+                fs::remove_dir_all(&path)?;
+            }
+            continue;
+        }
+
+        if !destination_path.exists() {
+            if let Some(parent) = destination_path.parent() {
+                fs::create_dir_all(parent)?;
+            }
+            fs::rename(&path, &destination_path)?;
+            continue;
+        }
+
+        merge_file_contents(&path, &destination_path)?;
+        if path.exists() {
+            fs::remove_file(&path)?;
+        }
+    }
+
+    Ok(())
+}
+
+fn merge_file_contents(source: &Path, destination: &Path) -> Result<()> {
+    let source_contents = fs::read_to_string(source)?;
+    let destination_contents = fs::read_to_string(destination)?;
+    if source_contents == destination_contents {
+        return Ok(());
+    }
+
+    let merged = match source.extension().and_then(|ext| ext.to_str()) {
+        Some("jsonl") => merge_unique_lines(&destination_contents, &source_contents),
+        Some("md") => merge_markdown_blocks(&destination_contents, &source_contents),
+        _ => format!("{}\n{}", destination_contents.trim_end(), source_contents.trim_start()),
+    };
+
+    fs::write(destination, merged)?;
+    Ok(())
+}
+
+fn merge_unique_lines(existing: &str, incoming: &str) -> String {
+    let mut seen = HashSet::new();
+    let mut lines = Vec::new();
+    for line in existing.lines().chain(incoming.lines()) {
+        let trimmed = line.trim();
+        if trimmed.is_empty() || !seen.insert(trimmed.to_string()) {
+            continue;
+        }
+        lines.push(trimmed.to_string());
+    }
+
+    if lines.is_empty() {
+        String::new()
+    } else {
+        format!("{}\n", lines.join("\n"))
+    }
+}
+
+fn merge_markdown_blocks(existing: &str, incoming: &str) -> String {
+    let mut seen = HashSet::new();
+    let mut blocks = Vec::new();
+    for block in existing
+        .split("\n\n")
+        .chain(incoming.split("\n\n"))
+        .map(str::trim)
+        .filter(|block| !block.is_empty())
+    {
+        if seen.insert(block.to_string()) {
+            blocks.push(block.to_string());
+        }
+    }
+
+    if blocks.is_empty() {
+        String::new()
+    } else {
+        format!("{}\n", blocks.join("\n\n"))
+    }
+}
+
+fn clean_session_logs(config: &MemfoldConfig, scope: &ScopeRef) -> Result<()> {
+    let sessions_dir = config.project_root(scope).join("sessions");
+    if !sessions_dir.exists() {
+        return Ok(());
+    }
+
+    let mut session_dirs = Vec::new();
+    for entry in fs::read_dir(&sessions_dir)? {
+        session_dirs.push(entry?.path());
+    }
+    session_dirs.sort();
+
+    for session_dir in session_dirs {
+        let session_log_path = session_dir.join("session_log.jsonl");
+        if !session_log_path.exists() {
+            continue;
+        }
+
+        let contents = fs::read_to_string(&session_log_path)?;
+        let mut kept = Vec::new();
+        for line in contents.lines().filter(|line| !line.trim().is_empty()) {
+            let mut value: Value = serde_json::from_str(line)?;
+            let summary = value["summary"].as_str().unwrap_or_default().to_string();
+            if is_memory_noise(&summary) {
+                continue;
+            }
+
+            if let Some(scope_obj) = value.get_mut("scope").and_then(Value::as_object_mut) {
+                scope_obj.insert("id".to_string(), Value::String(scope.scope_id.clone()));
+            }
+            kept.push(serde_json::to_string(&value)?);
+        }
+
+        if kept.is_empty() {
+            fs::remove_file(&session_log_path)?;
+            if session_dir.read_dir()?.next().is_none() {
+                fs::remove_dir(session_dir)?;
+            }
+            continue;
+        }
+
+        fs::write(&session_log_path, format!("{}\n", kept.join("\n")))?;
+    }
+
+    Ok(())
+}
+
+fn clean_history_files(config: &MemfoldConfig, scope: &ScopeRef) -> Result<()> {
+    let history_dir = config.project_root(scope).join("history").join("daily");
+    if !history_dir.exists() {
+        return Ok(());
+    }
+
+    let mut files = Vec::new();
+    for entry in fs::read_dir(&history_dir)? {
+        let path = entry?.path();
+        if path.extension().and_then(|ext| ext.to_str()) == Some("md") {
+            files.push(path);
+        }
+    }
+    files.sort();
+
+    for path in files {
+        let contents = fs::read_to_string(&path)?;
+        let mut cleaned_blocks = Vec::new();
+        for block in contents.split("\n\n").map(str::trim).filter(|block| !block.is_empty()) {
+            if let Some(cleaned) = clean_history_block(block) {
+                cleaned_blocks.push(cleaned);
+            }
+        }
+
+        if cleaned_blocks.is_empty() {
+            fs::remove_file(&path)?;
+            continue;
+        }
+
+        fs::write(&path, format!("{}\n", cleaned_blocks.join("\n\n")))?;
+    }
+
+    Ok(())
+}
+
+fn clean_history_block(block: &str) -> Option<String> {
+    let lines = block.lines().collect::<Vec<_>>();
+    let headline = lines
+        .iter()
+        .find(|line| line.starts_with("## "))
+        .copied()?;
+    let summary = headline
+        .split("] ")
+        .nth(1)
+        .unwrap_or_default()
+        .trim()
+        .to_string();
+    if is_memory_noise(&summary) {
+        return None;
+    }
+
+    let mut cleaned = Vec::new();
+    for line in lines {
+        if line.starts_with("- ") {
+            let bullet_summary = line
+                .split("] ")
+                .nth(1)
+                .unwrap_or_else(|| line.trim_start_matches("- ").trim());
+            if is_memory_noise(bullet_summary) {
+                continue;
+            }
+        }
+        cleaned.push(line.to_string());
+    }
+
+    Some(cleaned.join("\n"))
 }
 
 #[derive(Debug)]
