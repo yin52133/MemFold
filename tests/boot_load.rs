@@ -242,3 +242,58 @@ fn load_startup_bundle_rejects_unstable_scope_mutations() {
     let err = load_startup_bundle(&config, &user_scope, Mode::Normal, Some(100)).unwrap_err();
     assert!(matches!(err, Error::UnstableMutation(_)));
 }
+
+#[test]
+fn compile_scope_bundle_deduplicates_identical_text_blocks() {
+    let (_tmp, config) = init_config();
+    let scope = ScopeRef::new(ScopeType::Project, "memfold").unwrap();
+    let stable_path = config
+        .root
+        .join("memory")
+        .join("repos")
+        .join("memfold")
+        .join("stable")
+        .join("rules.md");
+    write_stable_file(
+        &stable_path,
+        "## item_key: project.rule.alpha\n\
+title: Alpha\n\
+status: stable\n\
+autoload: boot_project\n\
+claim_fingerprint: cfp_alpha\n\
+content_hash: sha256:alpha\n\
+revision: 1\n\n\
+用户要求默认中文\n\n\
+## item_key: project.rule.beta\n\
+title: Beta\n\
+status: stable\n\
+autoload: boot_project\n\
+claim_fingerprint: cfp_beta\n\
+content_hash: sha256:beta\n\
+revision: 1\n\n\
+用户要求默认中文\n",
+    );
+
+    let conn = Connection::open(config.state_db_path()).unwrap();
+    insert_memory_item(
+        &conn,
+        "mem_alpha",
+        "project",
+        "memfold",
+        "project.rule.alpha",
+        "memory/repos/memfold/stable/rules.md",
+    );
+    insert_memory_item(
+        &conn,
+        "mem_beta",
+        "project",
+        "memfold",
+        "project.rule.beta",
+        "memory/repos/memfold/stable/rules.md",
+    );
+
+    let bundle = compile_scope_bundle(&config, &scope, 100).unwrap();
+    assert_eq!(bundle.items.len(), 1);
+    assert_eq!(bundle.total_tokens_estimate, 1);
+    assert_eq!(bundle.items[0].text, "用户要求默认中文");
+}

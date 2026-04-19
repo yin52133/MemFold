@@ -1,3 +1,4 @@
+use std::collections::HashSet;
 use std::fs;
 use std::path::Path;
 
@@ -47,11 +48,16 @@ pub fn compile_scope_bundle(
     let stable_items = read_stable_items(config, scope)?;
 
     let mut items = Vec::new();
+    let mut seen_texts = HashSet::new();
     let mut total_tokens_estimate = 0usize;
     let mut degraded = false;
 
     for item in stable_items {
         if item.status != "stable" || !autoload_matches(scope.scope_type, &item.autoload) {
+            continue;
+        }
+        let text_key = canonical_text_key(&item.text);
+        if !seen_texts.insert(text_key) {
             continue;
         }
 
@@ -271,6 +277,14 @@ fn autoload_matches(scope_type: ScopeType, autoload: &str) -> bool {
 
 fn estimate_tokens(text: &str) -> usize {
     text.split_whitespace().count()
+}
+
+fn canonical_text_key(text: &str) -> String {
+    text.split_whitespace()
+        .collect::<Vec<_>>()
+        .join(" ")
+        .trim()
+        .to_lowercase()
 }
 
 fn resolve_source_item_id(
