@@ -234,6 +234,62 @@ fn feedback_rejects_evidence_only_claim_before_promotion() {
 }
 
 #[test]
+fn feedback_reject_does_not_duplicate_tombstones_for_same_claim() {
+    let tmp = TempDir::new().unwrap();
+    let root = memfold_root(&tmp);
+    let config = MemfoldConfig::default_for_root(root.clone());
+    initialize_root(&config).unwrap();
+    let scope = ScopeRef::new(ScopeType::Project, "memfold").unwrap();
+
+    write_evidence(
+        &config,
+        &WriteEvidenceInput {
+            scope: scope.clone(),
+            session_id: "sess_repeat_reject".to_string(),
+            source_kind: SourceKind::User,
+            summary: "重复拒绝不应生成多个 tombstone".to_string(),
+            raw_text: Some("重复拒绝不应生成多个 tombstone".to_string()),
+            promotable: true,
+            origin_mode: Mode::Normal,
+            claim_fingerprint: Some("cfp_repeat_reject".to_string()),
+        },
+    )
+    .unwrap();
+
+    let first = apply_feedback(
+        &config,
+        &scope,
+        "cfp_repeat_reject",
+        "rejected",
+        "第一次拒绝",
+        Some("sess_repeat_reject"),
+    )
+    .unwrap();
+    assert!(first.tombstone_written);
+
+    let second = apply_feedback(
+        &config,
+        &scope,
+        "cfp_repeat_reject",
+        "rejected",
+        "第二次拒绝",
+        Some("sess_repeat_reject"),
+    )
+    .unwrap();
+    assert!(!second.tombstone_written);
+
+    let conn = Connection::open(config.state_db_path()).unwrap();
+    let tombstone_count: i64 = conn
+        .query_row(
+            "SELECT COUNT(*) FROM tombstones WHERE claim_fingerprint = 'cfp_repeat_reject'",
+            [],
+            |row| row.get(0),
+        )
+        .unwrap();
+    assert_eq!(tombstone_count, 1);
+}
+
+#[test]
 fn repair_rebuilds_trace_archives_projection() {
     let tmp = TempDir::new().unwrap();
     let root = memfold_root(&tmp);

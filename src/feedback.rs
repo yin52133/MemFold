@@ -102,7 +102,10 @@ pub fn apply_feedback(
     }
 
     let mut tombstone_written = false;
-    if verdict == "rejected" && (!targets.is_empty() || !evidence_targets.is_empty()) {
+    if verdict == "rejected"
+        && (!targets.is_empty() || !evidence_targets.is_empty())
+        && !tombstone_exists(&tx, scope, claim_fingerprint)?
+    {
         tx.execute(
             "INSERT INTO tombstones (id, claim_fingerprint, scope_type, scope_id, reason, source_item_id, created_at)
              VALUES (?1, ?2, ?3, ?4, ?5, NULL, ?6)",
@@ -133,6 +136,24 @@ pub fn apply_feedback(
         updated: !targets.is_empty() || !evidence_targets.is_empty(),
         tombstone_written,
     })
+}
+
+fn tombstone_exists(
+    tx: &rusqlite::Transaction<'_>,
+    scope: &ScopeRef,
+    claim_fingerprint: &str,
+) -> Result<bool> {
+    let exists = tx
+        .query_row(
+            "SELECT EXISTS(
+                SELECT 1 FROM tombstones
+                WHERE scope_type = ?1 AND scope_id = ?2 AND claim_fingerprint = ?3
+            )",
+            params![scope.scope_type.as_str(), &scope.scope_id, claim_fingerprint],
+            |row| row.get::<_, i64>(0),
+        )?
+        != 0;
+    Ok(exists)
 }
 
 fn update_stable_file_status(path: &PathBuf, item_key: &str, new_status: &str) -> Result<()> {
