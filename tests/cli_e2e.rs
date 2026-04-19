@@ -35,6 +35,8 @@ fn cli_core_flow_runs_through_search_feedback_dream_and_repair() {
             "user",
             "--summary",
             "用户明确要求默认用中文回答",
+            "--raw-text",
+            "以后默认用中文回答。",
             "--promotable",
             "1",
             "--origin-mode",

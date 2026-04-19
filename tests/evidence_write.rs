@@ -166,3 +166,48 @@ fn write_evidence_rejects_obviously_unsafe_summaries() {
     let err = write_evidence(&config, &input).unwrap_err();
     assert!(matches!(err, Error::UnsafeSummary));
 }
+
+#[test]
+fn write_evidence_does_not_autofill_raw_text_for_user_entries() {
+    let tmp = TempDir::new().unwrap();
+    let root = memfold_root(&tmp);
+    let config = MemfoldConfig::default_for_root(root.clone());
+    initialize_root(&config).unwrap();
+    let scope = ScopeRef::new(ScopeType::Project, "memfold").unwrap();
+
+    let result = write_evidence(
+        &config,
+        &WriteEvidenceInput {
+            scope,
+            session_id: "sess_no_raw".to_string(),
+            source_kind: SourceKind::User,
+            summary: "用户要求默认用中文回答".to_string(),
+            raw_text: None,
+            promotable: true,
+            origin_mode: Mode::Normal,
+            claim_fingerprint: Some("cfp_no_raw".to_string()),
+        },
+    )
+    .unwrap();
+
+    let conn = Connection::open(config.state_db_path()).unwrap();
+    let raw_text: Option<String> = conn
+        .query_row(
+            "SELECT raw_text FROM session_log_entries WHERE id = ?1",
+            params![result.evidence_id.clone()],
+            |row| row.get(0),
+        )
+        .unwrap();
+    assert_eq!(raw_text, None);
+
+    let jsonl_path = root
+        .join("memory")
+        .join("repos")
+        .join("memfold")
+        .join("sessions")
+        .join("sess_no_raw")
+        .join("session_log.jsonl");
+    let jsonl_text = fs::read_to_string(&jsonl_path).unwrap();
+    let jsonl_value: Value = serde_json::from_str(jsonl_text.lines().next().unwrap()).unwrap();
+    assert!(jsonl_value["raw_text"].is_null());
+}

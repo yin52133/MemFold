@@ -263,11 +263,5 @@ fn relative_session_evidence_path(scope: &ScopeRef, session_id: &str) -> String 
 }
 
 fn normalized_raw_text(input: &WriteEvidenceInput) -> Option<String> {
-    input.raw_text.clone().or_else(|| {
-        if input.source_kind == SourceKind::User {
-            Some(input.summary.clone())
-        } else {
-            None
-        }
-    })
+    input.raw_text.clone()
 }

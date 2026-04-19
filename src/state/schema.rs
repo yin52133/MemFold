@@ -245,7 +245,7 @@ SELECT
     scope_id,
     source_kind,
     summary,
-    CASE WHEN source_kind = 'user' THEN summary ELSE NULL END,
+    NULL,
     jsonl_path,
     line_no,
     promotable,
