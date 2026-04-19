@@ -708,6 +708,12 @@ fn clean_history_files(config: &MemfoldConfig, scope: &ScopeRef) -> Result<()> {
 
 fn clean_history_block(block: &str) -> Option<String> {
     let lines = block.lines().collect::<Vec<_>>();
+    if lines
+        .first()
+        .is_some_and(|line| line.starts_with("<!-- session: verify_"))
+    {
+        return None;
+    }
     let headline = lines
         .iter()
         .find(|line| line.starts_with("## "))

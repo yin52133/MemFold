@@ -256,6 +256,38 @@ fn repair_merges_alias_history_blocks_without_duplicate_summary_ids() {
 }
 
 #[test]
+fn repair_prunes_verify_history_blocks() {
+    let tmp = TempDir::new().unwrap();
+    let root = memfold_root(&tmp);
+    let config = MemfoldConfig::default_for_root(root.clone());
+    initialize_root(&config).unwrap();
+
+    let history_dir = root
+        .join("memory")
+        .join("repos")
+        .join("memfold")
+        .join("history")
+        .join("daily");
+    fs::create_dir_all(&history_dir).unwrap();
+    fs::write(
+        history_dir.join("2026-04-19.md"),
+        "<!-- session: verify_launcher_123 | summary_id: hs_verify -->\n\
+## 2026-04-19T12:00:00Z [manual] MemFold launcher verify 123\n\
+- [decision] MemFold launcher verify 123\n\n\
+<!-- session: real_session | summary_id: hs_real -->\n\
+## 2026-04-19T12:01:00Z [manual] 用户要求默认中文\n\
+- [user] 用户要求默认中文\n",
+    )
+    .unwrap();
+
+    run_repair(&config, None).unwrap();
+
+    let contents = fs::read_to_string(history_dir.join("2026-04-19.md")).unwrap();
+    assert!(!contents.contains("verify_launcher_123"));
+    assert!(contents.contains("real_session"));
+}
+
+#[test]
 fn repair_does_not_resurrect_tombstoned_stable_memory() {
     let tmp = TempDir::new().unwrap();
     let root = memfold_root(&tmp);
