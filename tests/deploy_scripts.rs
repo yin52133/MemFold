@@ -27,6 +27,7 @@ fn verify_script_checks_launcher_hook_and_search_health() {
     assert!(script.contains("verify_memory_raw_trace"));
     assert!(script.contains("rm -rf"));
     assert!(script.contains("tr '[:upper:]' '[:lower:]'"));
+    assert!(script.contains("verify_launcher_*"));
     assert!(script.contains("42"));
 }
 

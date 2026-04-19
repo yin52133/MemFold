@@ -204,7 +204,10 @@ if ! "${MEMFOLD_BIN}" --root "${MEMFOLD_HOME}" feedback \
   repair_needed "feedback cleanup failed for verify memory"
 fi
 
-rm -rf "${VERIFY_SESSION_ROOT}/${LAUNCHER_SESSION_ID}" "${VERIFY_SESSION_ROOT}/${HOOK_SESSION_ID}"
+rm -rf \
+  "${VERIFY_SESSION_ROOT}"/verify_launcher_* \
+  "${VERIFY_SESSION_ROOT}"/verify_hook_* \
+  "${VERIFY_SESSION_ROOT}/${MEMORY_SESSION_ID}"
 
 if ! "${MEMFOLD_BIN}" --root "${MEMFOLD_HOME}" repair \
   --scope-type "${VERIFY_SCOPE_TYPE}" \
