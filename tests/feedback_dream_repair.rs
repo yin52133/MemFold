@@ -146,44 +146,6 @@ fn dream_discards_sterile_evidence() {
 }
 
 #[test]
-fn dream_discards_untraceable_user_claim_without_raw_text() {
-    let tmp = TempDir::new().unwrap();
-    let root = memfold_root(&tmp);
-    let config = MemfoldConfig::default_for_root(root.clone());
-    initialize_root(&config).unwrap();
-    let scope = ScopeRef::new(ScopeType::Project, "memfold").unwrap();
-
-    write_evidence(
-        &config,
-        &WriteEvidenceInput {
-            scope: scope.clone(),
-            session_id: "sess_untraceable".to_string(),
-            source_kind: SourceKind::User,
-            summary: "用户要求默认用中文回答".to_string(),
-            raw_text: None,
-            promotable: true,
-            origin_mode: Mode::Normal,
-            claim_fingerprint: Some("cfp_untraceable".to_string()),
-        },
-    )
-    .unwrap();
-
-    let run = run_dream(&config, &scope, "manual").unwrap();
-    assert_eq!(run.promoted, 0);
-    assert!(run.discarded >= 1);
-
-    let conn = Connection::open(config.state_db_path()).unwrap();
-    let count: i64 = conn
-        .query_row(
-            "SELECT COUNT(*) FROM memory_items WHERE claim_fingerprint = ?1",
-            params!["cfp_untraceable"],
-            |row| row.get(0),
-        )
-        .unwrap();
-    assert_eq!(count, 0);
-}
-
-#[test]
 fn feedback_rejects_evidence_only_claim_before_promotion() {
     let tmp = TempDir::new().unwrap();
     let root = memfold_root(&tmp);

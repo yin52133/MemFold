@@ -50,7 +50,7 @@ pub fn run_dream(config: &MemfoldConfig, scope: &ScopeRef, trigger: &str) -> Res
 
     let candidates = {
         let mut stmt = conn.prepare(
-            "SELECT id, summary, raw_text, claim_fingerprint, source_kind, origin_mode
+            "SELECT id, summary, claim_fingerprint, source_kind, origin_mode
              FROM session_log_entries
              WHERE scope_type = ?1 AND scope_id = ?2 AND promotable = 1
              ORDER BY created_at",
@@ -60,9 +60,8 @@ pub fn run_dream(config: &MemfoldConfig, scope: &ScopeRef, trigger: &str) -> Res
                 row.get::<_, String>(0)?,
                 row.get::<_, String>(1)?,
                 row.get::<_, Option<String>>(2)?,
-                row.get::<_, Option<String>>(3)?,
+                row.get::<_, String>(3)?,
                 row.get::<_, String>(4)?,
-                row.get::<_, String>(5)?,
             ))
         })?;
         rows.collect::<rusqlite::Result<Vec<_>>>()?
@@ -73,13 +72,10 @@ pub fn run_dream(config: &MemfoldConfig, scope: &ScopeRef, trigger: &str) -> Res
     let quarantined = 0u64;
     let mut discarded = 0u64;
 
-    for (_evidence_id, summary, raw_text, claim_fingerprint, source_kind, origin_mode) in candidates {
+    for (_evidence_id, summary, claim_fingerprint, _source_kind, origin_mode) in candidates {
         let claim_fingerprint = claim_fingerprint.unwrap_or_else(|| fingerprint_for(&summary));
 
-        if origin_mode == "sterile"
-            || (source_kind == "user" && raw_text.as_deref().unwrap_or("").trim().is_empty())
-            || tombstone_exists(&conn, scope, &claim_fingerprint)?
-        {
+        if origin_mode == "sterile" || tombstone_exists(&conn, scope, &claim_fingerprint)? {
             discarded += 1;
             continue;
         }
