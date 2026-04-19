@@ -233,6 +233,7 @@ cdx-memfold
 - 仓库内的 `turn_end.sh` 会随 deploy 刷新，但当前每轮自动挂接仍依赖宿主侧接入，不等同于只做 plugin install
 - 只做 plugin 安装不是完整部署
 - verify 现在会真实走一遍 raw-text memory 路径（`write-evidence -> dream run -> search`），并在最后清理自己的 smoke memory 与 verify session 目录
+- 现在预期重复 deploy/verify 也保持幂等，不再持续累积 smoke memory 残留
 
 ## 验证
 

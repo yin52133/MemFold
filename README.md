@@ -236,6 +236,7 @@ Behavior:
 - shipped `turn_end.sh` is refreshed by deploy, but current host-side per-turn attachment is still separate from plugin installation
 - plugin installation alone is not the full deployment path
 - verify now exercises a raw-text memory round-trip (`write-evidence -> dream run -> search`) and cleans up its own smoke memory and verify session directories before the final repair pass
+- repeated deploy/verify runs are now expected to stay idempotent rather than accumulating smoke memory residue
 
 ## Validation
 

@@ -48,6 +48,7 @@ cdx-memfold
 - verify 还会检查一次 raw-text memory 回路：`write-evidence -> dream run -> search`
 - verify 会在最后清理自己的 smoke memory、verify session 目录，以及 verify history 残留，再做最终 repair
 - deploy 会先跑一次 `memfold repair` 再进入 sync/verify；如果 verify 仍判断为“可修复漂移”，还会再补一次 repair
+- 预期重复 deploy/verify 也保持运维幂等，而不是持续累积 smoke 状态
 
 ## 说明
 
