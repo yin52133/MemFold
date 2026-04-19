@@ -529,6 +529,86 @@ fn rejected_claim_does_not_hide_unrelated_history_with_same_summary() {
 }
 
 #[test]
+fn rejected_user_claim_does_not_hide_decision_history_with_same_summary() {
+    let tmp = TempDir::new().unwrap();
+    let root = memfold_root(&tmp);
+    let config = MemfoldConfig::default_for_root(root.clone());
+    initialize_root(&config).unwrap();
+    let scope = ScopeRef::new(ScopeType::Project, "memfold").unwrap();
+
+    write_evidence(
+        &config,
+        &WriteEvidenceInput {
+            scope: scope.clone(),
+            session_id: "sess_same_summary_user".to_string(),
+            source_kind: SourceKind::User,
+            summary: "用户要求默认中文".to_string(),
+            raw_text: Some("以后默认用中文回答。".to_string()),
+            promotable: true,
+            origin_mode: Mode::Normal,
+            claim_fingerprint: Some("cfp_same_summary_user".to_string()),
+        },
+    )
+    .unwrap();
+    summarize_history(
+        &config,
+        &SummarizeHistoryInput {
+            scope: scope.clone(),
+            session_id: "sess_same_summary_user".to_string(),
+            trigger: "session_end".to_string(),
+        },
+    )
+    .unwrap();
+
+    write_evidence(
+        &config,
+        &WriteEvidenceInput {
+            scope: scope.clone(),
+            session_id: "sess_same_summary_decision".to_string(),
+            source_kind: SourceKind::Decision,
+            summary: "用户要求默认中文".to_string(),
+            raw_text: None,
+            promotable: false,
+            origin_mode: Mode::Normal,
+            claim_fingerprint: None,
+        },
+    )
+    .unwrap();
+    summarize_history(
+        &config,
+        &SummarizeHistoryInput {
+            scope: scope.clone(),
+            session_id: "sess_same_summary_decision".to_string(),
+            trigger: "session_end".to_string(),
+        },
+    )
+    .unwrap();
+
+    let run = run_dream(&config, &scope, "manual").unwrap();
+    assert_eq!(run.promoted, 1);
+
+    let feedback = apply_feedback(
+        &config,
+        &scope,
+        "cfp_same_summary_user",
+        "rejected",
+        "这条记忆不对",
+        Some("sess_same_summary_user"),
+    )
+    .unwrap();
+    assert!(feedback.updated);
+
+    let result = search_memories(&config, &scope, Intent::Continue, "默认中文", 80).unwrap();
+    assert!(
+        result.results.iter().any(|item| {
+            item.source_type == "history"
+                && item.summary == "用户要求默认中文"
+        }),
+        "decision-origin history with the same summary should remain searchable"
+    );
+}
+
+#[test]
 fn repair_rebuilds_trace_archives_projection() {
     let tmp = TempDir::new().unwrap();
     let root = memfold_root(&tmp);

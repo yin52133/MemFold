@@ -24,6 +24,8 @@ pub struct QmdRecord {
     pub raw_text: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub claim_fingerprint: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub history_has_user_signal: Option<bool>,
     pub status: String,
     pub scope_type: String,
     pub scope_id: String,
@@ -184,6 +186,7 @@ fn build_stable_records(config: &MemfoldConfig, scope: &ScopeRef) -> Result<Vec<
                 summary: item.summary,
                 raw_text: None,
                 claim_fingerprint: item.claim_fingerprint,
+                history_has_user_signal: None,
                 status: item.status,
                 scope_type: scope.scope_type.as_str().to_string(),
                 scope_id: scope.scope_id.clone(),
@@ -252,6 +255,7 @@ fn build_evidence_records(config: &MemfoldConfig, scope: &ScopeRef) -> Result<Ve
                 summary,
                 raw_text,
                 claim_fingerprint,
+                history_has_user_signal: None,
                 status: status.to_string(),
                 scope_type: scope.scope_type.as_str().to_string(),
                 scope_id: scope.scope_id.clone(),
@@ -298,6 +302,7 @@ fn build_archive_records(config: &MemfoldConfig, scope: &ScopeRef) -> Result<Vec
                 summary: entry.summary,
                 raw_text: None,
                 claim_fingerprint: None,
+                history_has_user_signal: Some(entry.has_user_signal),
                 status: "history".to_string(),
                 scope_type: scope.scope_type.as_str().to_string(),
                 scope_id: scope.scope_id.clone(),
@@ -445,31 +450,38 @@ fn parse_markdown_items(path: &Path) -> Result<Vec<ParsedMarkdownItem>> {
 struct ParsedArchiveEntry {
     summary: String,
     updated_at: String,
+    has_user_signal: bool,
 }
 
 fn parse_archive_entries(path: &Path) -> Result<Vec<ParsedArchiveEntry>> {
     let contents = fs::read_to_string(path)?;
     let mut entries = Vec::new();
 
-    for line in contents.lines() {
-        if !line.starts_with("## ") {
+    for block in contents.split("\n\n") {
+        let mut lines = block.lines();
+        let Some(first_heading) = lines.find(|line| line.starts_with("## ")) else {
             continue;
-        }
+        };
 
-        let updated_at = line
+        let updated_at = first_heading
             .trim_start_matches("## ")
             .split(' ')
             .next()
             .unwrap_or_default()
             .to_string();
-        let summary = line
+        let summary = first_heading
             .split("] ")
             .nth(1)
             .unwrap_or_default()
             .trim()
             .to_string();
+        let has_user_signal = lines.any(|line| line.trim_start().starts_with("- [user]"));
 
-        entries.push(ParsedArchiveEntry { summary, updated_at });
+        entries.push(ParsedArchiveEntry {
+            summary,
+            updated_at,
+            has_user_signal,
+        });
     }
 
     Ok(entries)

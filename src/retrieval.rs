@@ -53,7 +53,8 @@ pub fn search_memories(
                 .map(|fingerprint| !tombstoned_claims.contains(fingerprint))
                 .unwrap_or(true);
             let history_ok = if record.source_type == "history" {
-                !tombstoned_summaries.contains(&canonical_summary_key(&record.summary))
+                !record.history_has_user_signal.unwrap_or(false)
+                    || !tombstoned_summaries.contains(&canonical_summary_key(&record.summary))
             } else {
                 true
             };
