@@ -300,6 +300,64 @@ fn feedback_reject_does_not_duplicate_tombstones_for_same_claim() {
 }
 
 #[test]
+fn feedback_reject_does_not_duplicate_feedback_events_for_same_claim() {
+    let tmp = TempDir::new().unwrap();
+    let root = memfold_root(&tmp);
+    let config = MemfoldConfig::default_for_root(root.clone());
+    initialize_root(&config).unwrap();
+    let scope = ScopeRef::new(ScopeType::Project, "memfold").unwrap();
+
+    write_evidence(
+        &config,
+        &WriteEvidenceInput {
+            scope: scope.clone(),
+            session_id: "sess_repeat_feedback".to_string(),
+            source_kind: SourceKind::User,
+            summary: "重复拒绝不应生成多个 feedback event".to_string(),
+            raw_text: Some("重复拒绝不应生成多个 feedback event".to_string()),
+            promotable: true,
+            origin_mode: Mode::Normal,
+            claim_fingerprint: Some("cfp_repeat_feedback".to_string()),
+        },
+    )
+    .unwrap();
+
+    let first = apply_feedback(
+        &config,
+        &scope,
+        "cfp_repeat_feedback",
+        "rejected",
+        "第一次拒绝",
+        Some("sess_repeat_feedback"),
+    )
+    .unwrap();
+    assert!(first.updated);
+
+    let second = apply_feedback(
+        &config,
+        &scope,
+        "cfp_repeat_feedback",
+        "rejected",
+        "第二次拒绝",
+        Some("sess_repeat_feedback"),
+    )
+    .unwrap();
+    assert!(second.updated);
+
+    let conn = Connection::open(config.state_db_path()).unwrap();
+    let event_count: i64 = conn
+        .query_row(
+            "SELECT COUNT(*) FROM feedback_events WHERE target_id IN (
+                SELECT id FROM session_log_entries WHERE claim_fingerprint = 'cfp_repeat_feedback'
+            )",
+            [],
+            |row| row.get(0),
+        )
+        .unwrap();
+    assert_eq!(event_count, 1);
+}
+
+#[test]
 fn rejected_claims_do_not_appear_in_search_results() {
     let tmp = TempDir::new().unwrap();
     let root = memfold_root(&tmp);

@@ -74,31 +74,25 @@ pub fn apply_feedback(
             "UPDATE memory_items SET status = ?1, updated_at = ?2 WHERE id = ?3",
             params![new_status, &now, target_id],
         )?;
-        tx.execute(
-            "INSERT INTO feedback_events (id, target_id, target_type, verdict, reason, session_id, created_at)
-             VALUES (?1, ?2, 'memory_item', ?3, ?4, ?5, ?6)",
-            params![
-                format!("fb_{}", Uuid::new_v4().simple()),
-                target_id,
-                verdict,
-                reason,
-                session_id,
-                &now,
-            ],
+        insert_feedback_event_if_missing(
+            &tx,
+            target_id,
+            "memory_item",
+            verdict,
+            reason,
+            session_id,
+            &now,
         )?;
     }
     for target_id in &evidence_targets {
-        tx.execute(
-            "INSERT INTO feedback_events (id, target_id, target_type, verdict, reason, session_id, created_at)
-             VALUES (?1, ?2, 'evidence_item', ?3, ?4, ?5, ?6)",
-            params![
-                format!("fb_{}", Uuid::new_v4().simple()),
-                target_id,
-                verdict,
-                reason,
-                session_id,
-                &now,
-            ],
+        insert_feedback_event_if_missing(
+            &tx,
+            target_id,
+            "evidence_item",
+            verdict,
+            reason,
+            session_id,
+            &now,
         )?;
     }
 
@@ -156,6 +150,45 @@ fn tombstone_exists(
         )?
         != 0;
     Ok(exists)
+}
+
+fn insert_feedback_event_if_missing(
+    tx: &rusqlite::Transaction<'_>,
+    target_id: &str,
+    target_type: &str,
+    verdict: &str,
+    reason: &str,
+    session_id: Option<&str>,
+    now: &str,
+) -> Result<()> {
+    let exists = tx
+        .query_row(
+            "SELECT EXISTS(
+                SELECT 1 FROM feedback_events
+                WHERE target_id = ?1 AND target_type = ?2 AND verdict = ?3
+            )",
+            params![target_id, target_type, verdict],
+            |row| row.get::<_, i64>(0),
+        )?
+        != 0;
+    if exists {
+        return Ok(());
+    }
+
+    tx.execute(
+        "INSERT INTO feedback_events (id, target_id, target_type, verdict, reason, session_id, created_at)
+         VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7)",
+        params![
+            format!("fb_{}", Uuid::new_v4().simple()),
+            target_id,
+            target_type,
+            verdict,
+            reason,
+            session_id,
+            now,
+        ],
+    )?;
+    Ok(())
 }
 
 fn update_stable_file_status(path: &PathBuf, item_key: &str, new_status: &str) -> Result<()> {
