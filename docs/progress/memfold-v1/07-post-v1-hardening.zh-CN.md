@@ -18,6 +18,7 @@
 - startup `boot bundle` 在单 scope 与跨 `user/project` scope 两层都做正文去重
 - `feedback` / `tombstone` / `qmd` / `repair` 的派生层一致性已补齐：被 reject 的 claim 不再通过 sidecar 或 repair 复活
 - `verify_codex_global.sh` 现在是幂等 smoke：raw-trace path、verify cleanup、session/history cleanup 都已打通
+- verify smoke 的 DB 级残留也已经被清到最小：session/evidence/feedback/tombstone/mutation 不再持续堆积
 
 ## 3. 真实环境验证结果
 
@@ -33,6 +34,7 @@
 - verify session rows / verify session dirs: `0 / 0`
 - `feedback_events where reason='verify cleanup'`: `0`
 - `tombstones where claim_fingerprint='cfp_verify_raw_trace'`: `0`
+- `mutations where target_ref like '%verify_%'`: `0`
 
 ## 4. 当前结论
 
