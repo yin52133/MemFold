@@ -291,7 +291,7 @@ fn build_archive_records(config: &MemfoldConfig, scope: &ScopeRef) -> Result<Vec
                 continue;
             }
             records.push(QmdRecord {
-                doc_id: format!("archive:{}:{}", scope.scope_key(), idx + 1),
+                doc_id: format!("archive:{}:{}:{}", scope.scope_key(), relative_path, idx + 1),
                 source_type: "history".to_string(),
                 relative_path: relative_path.clone(),
                 pointer: format!("{relative_path}#entry-{}", idx + 1),

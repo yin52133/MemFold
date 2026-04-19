@@ -174,6 +174,41 @@ fn sync_scope_builds_sidecar_records_for_stable_evidence_and_archive_sources() {
 }
 
 #[test]
+fn sync_scope_history_doc_ids_are_unique_across_days() {
+    let (_tmp, config) = init_config();
+    let scope = ScopeRef::new(ScopeType::Project, "memfold").unwrap();
+    let history_dir = config
+        .root
+        .join("memory")
+        .join("repos")
+        .join("memfold")
+        .join("history")
+        .join("daily");
+    fs::create_dir_all(&history_dir).unwrap();
+    fs::write(
+        history_dir.join("2026-04-18.md"),
+        "<!-- session: s1 | summary_id: hs_1 -->\n## 2026-04-18T12:00:00Z [manual] first day summary\n- [decision] first day summary\n",
+    )
+    .unwrap();
+    fs::write(
+        history_dir.join("2026-04-19.md"),
+        "<!-- session: s2 | summary_id: hs_2 -->\n## 2026-04-19T12:00:00Z [manual] second day summary\n- [decision] second day summary\n",
+    )
+    .unwrap();
+
+    sync_scope(&config, &scope).unwrap();
+    let records = load_scope_records(&config, &scope).unwrap();
+    let history_ids = records
+        .iter()
+        .filter(|record| record.source_type == "history")
+        .map(|record| record.doc_id.clone())
+        .collect::<Vec<_>>();
+
+    assert_eq!(history_ids.len(), 2);
+    assert_ne!(history_ids[0], history_ids[1]);
+}
+
+#[test]
 fn search_memories_auto_syncs_missing_qmd_and_orders_by_intent() {
     let (_tmp, config) = init_config();
     let scope = ScopeRef::new(ScopeType::Project, "memfold").unwrap();
