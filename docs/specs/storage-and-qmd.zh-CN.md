@@ -100,7 +100,7 @@ rebuild boot bundle + qmd
 | `stable` | `stable/*.md` |
 | `wiki` | `wiki/*.md` |
 | `history` | `history/daily/*.md` |
-| `session_log` | `session_log.jsonl` 的可检索摘要投影 |
+| `session_log` | `session_log.jsonl` 的可检索摘要投影（含可选 raw_text） |
 
 ## 8. Failure Cases and Acceptance
 
@@ -118,6 +118,11 @@ Capability: SQLite trace index is consistent
 Failure example: DB points to a missing `session_log` entry  
 Expected: every `session_log_entries` row resolves to one JSONL line  
 Completion signal: broken trace pointer rate = 0
+
+Capability: derived layers respect rejection state
+Failure example: a tombstoned claim is removed from SQLite state but still survives in `stable` markdown, boot bundle, or `qmd/`
+Expected: repair / rebuild removes tombstoned stable blocks and QMD skips tombstoned claims during sidecar rebuild
+Completion signal: tombstoned-claim resurrection rate in derived layers = 0
 
 ## 9. Implementation Phases
 

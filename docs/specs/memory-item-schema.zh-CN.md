@@ -45,7 +45,7 @@ boot/bundle.md
 ## 5. Core Decisions
 
 1. **What:** `memory_item` 不再要求 `title` 出现在人读文件中。 **Why:** 当前 `title` 与正文重复，没有额外信息。 **Reversal condition:** 如果后续出现明确的标题导航需求。
-2. **What:** `session_log_entry` 对 user 记录保存 `raw_text`。 **Why:** 需要验证“是不是用户真说过”。 **Reversal condition:** 如果原话存储被判定为不可接受。
+2. **What:** `session_log_entry` 对 user 记录支持保存 `raw_text`，并把它视为可追溯晋升的必要证据。 **Why:** 需要验证“是不是用户真说过”，而不是只信摘要。 **Reversal condition:** 如果原话存储被判定为不可接受。
 3. **What:** `history_summary_block` 只保留简洁人读字段。 **Why:** 它不是 trace index。 **Reversal condition:** 如果人工排障必须依赖 history 中的内部追溯字段。
 
 ## 6. Data and Interface Contracts
@@ -85,7 +85,7 @@ revision: 1
 | `scope_type` | enum | yes | `user / repo / family` |
 | `scope_id` | string | yes | target scope |
 | `source_kind` | enum | yes | `user / decision / feedback / code / test / tool / runtime` |
-| `raw_text` | string | conditional | required for `source_kind=user` |
+| `raw_text` | string | conditional | host should provide it for `source_kind=user`; without it the claim may be recorded but cannot be promoted as a traceable user memory |
 | `summary` | string | optional | normalized retrieval summary |
 | `promotable` | integer | yes | `0 / 1` |
 | `claim_fingerprint` | string | optional | semantic key |
@@ -144,6 +144,11 @@ Capability: user quote can be verified
 Failure example: promoted user preference lacks raw user text in session log  
 Expected: user-origin promoted claims trace to one `raw_text` field  
 Completion signal: raw quote trace miss rate = 0
+
+Capability: repeated rejected feedback stays idempotent
+Failure example: the same rejected claim keeps creating duplicate tombstones or duplicate feedback audit rows
+Expected: one semantic claim maps to one tombstone, and repeated identical rejects do not grow audit noise without new information
+Completion signal: duplicate tombstone / duplicate feedback-event rate = 0
 
 ## 8. Implementation Phases
 

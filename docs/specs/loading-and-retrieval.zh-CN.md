@@ -40,6 +40,9 @@ user asks to continue / references prior repo work
           ├── query repo scope first
           ├── query family scope second
           ├── query user scope last
+          ├── hide tombstoned claims from retrieval results
+          ├── dedupe identical summaries across layers
+          ├── prefer stable when a raw-text hit maps to the same promoted claim
           ├── if exact trace needed ──► open session_log
           └── return ranked results with source labels
 ```
@@ -114,3 +117,8 @@ Capability: trace can verify promoted user claims
 Failure example: stable 中存在用户偏好，但无法回到原始 user entry  
 Expected: promoted user-origin item can resolve to one raw `session_log` entry  
 Completion signal: trace success rate for promoted user-origin items = 100%
+
+Capability: rejected claims stop resurfacing through search
+Failure example: feedback 已明确拒绝的 claim 仍然从 stable / session_log 检索结果里返回
+Expected: tombstoned claim_fingerprint is filtered out before results are returned
+Completion signal: rejected-claim search resurfacing rate = 0
