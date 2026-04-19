@@ -1,4 +1,5 @@
 use serde::Serialize;
+use std::collections::HashSet;
 
 use crate::config::MemfoldConfig;
 use crate::domain::Intent;
@@ -58,8 +59,13 @@ pub fn search_memories(
     });
 
     let mut results = Vec::new();
+    let mut seen_summaries = HashSet::new();
     let mut used_budget = 0usize;
     for record in records {
+        let summary_key = canonical_summary_key(&record.summary);
+        if !seen_summaries.insert(summary_key) {
+            continue;
+        }
         let token_estimate = estimate_tokens(&record.summary);
         if used_budget + token_estimate > budget {
             break;
@@ -144,6 +150,14 @@ fn normalize_tokens(text: &str) -> Vec<String> {
 fn estimate_tokens(text: &str) -> usize {
     let count = normalize_tokens(text).len();
     count.max(1)
+}
+
+fn canonical_summary_key(text: &str) -> String {
+    text.split_whitespace()
+        .collect::<Vec<_>>()
+        .join(" ")
+        .trim()
+        .to_lowercase()
 }
 
 fn cosine_similarity(left: &[f32], right: &[f32]) -> f32 {

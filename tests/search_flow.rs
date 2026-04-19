@@ -301,6 +301,73 @@ fn sync_scope_skips_noisy_session_and_history_records() {
 }
 
 #[test]
+fn search_memories_deduplicates_equivalent_summaries_across_layers() {
+    let (_tmp, config) = init_config();
+    let scope = ScopeRef::new(ScopeType::Project, "memfold").unwrap();
+    let conn = Connection::open(config.state_db_path()).unwrap();
+
+    write_supporting_content(&config, &scope);
+    insert_memory_item(
+        &conn,
+        "mem_clean_truth",
+        "project",
+        "memfold",
+        "project.memory.clean_truth",
+        "memory/repos/memfold/stable/card.md",
+        "用户要求默认中文",
+        "2026-04-12T10:00:00Z",
+    );
+    write_stable_file(
+        &config
+            .root
+            .join("memory")
+            .join("repos")
+            .join("memfold")
+            .join("stable")
+            .join("card.md"),
+        "## item_key: project.memory.clean_truth\n\
+title: Clean truth\n\
+status: stable\n\
+autoload: boot_project\n\
+claim_fingerprint: cfp_clean_truth\n\
+content_hash: sha256:cleantruth\n\
+revision: 1\n\n\
+用户要求默认中文\n",
+    );
+
+    write_evidence(
+        &config,
+        &WriteEvidenceInput {
+            scope: scope.clone(),
+            session_id: "sess_dedupe".to_string(),
+            source_kind: SourceKind::User,
+            summary: "用户要求默认中文".to_string(),
+            raw_text: Some("以后默认用中文回答".to_string()),
+            promotable: true,
+            origin_mode: Mode::Normal,
+            claim_fingerprint: Some("cfp_clean_truth".to_string()),
+        },
+    )
+    .unwrap();
+    summarize_history(
+        &config,
+        &SummarizeHistoryInput {
+            scope: scope.clone(),
+            session_id: "sess_dedupe".to_string(),
+            trigger: "session_end".to_string(),
+        },
+    )
+    .unwrap();
+
+    sync_scope(&config, &scope).unwrap();
+    let result = search_memories(&config, &scope, Intent::Continue, "中文 默认", 100).unwrap();
+
+    assert_eq!(result.results.len(), 1);
+    assert_eq!(result.results[0].source_type, "stable");
+    assert_eq!(result.results[0].summary, "用户要求默认中文");
+}
+
+#[test]
 fn search_memories_rejects_moderate_semantic_match_without_lexical_overlap() {
     let (_tmp, config) = init_config();
     let scope = ScopeRef::new(ScopeType::Project, "memfold").unwrap();
