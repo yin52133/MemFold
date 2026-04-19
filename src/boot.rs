@@ -103,6 +103,7 @@ pub fn load_startup_bundle(
 
     let limit = budget.unwrap_or(usize::MAX);
     let mut items = Vec::new();
+    let mut seen_texts = HashSet::new();
     let mut total_tokens_estimate = 0usize;
     let mut degraded = false;
 
@@ -128,6 +129,10 @@ pub fn load_startup_bundle(
     for bundle_scope in bundle_scopes {
         let compiled = compile_scope_bundle(config, &bundle_scope, usize::MAX)?;
         for item in compiled.items {
+            let text_key = canonical_text_key(&item.text);
+            if !seen_texts.insert(text_key) {
+                continue;
+            }
             if total_tokens_estimate.saturating_add(item.token_estimate) > limit {
                 degraded = true;
                 return Ok(BundleLoad {

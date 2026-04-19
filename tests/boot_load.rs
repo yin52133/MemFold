@@ -297,3 +297,47 @@ revision: 1\n\n\
     assert_eq!(bundle.total_tokens_estimate, 1);
     assert_eq!(bundle.items[0].text, "用户要求默认中文");
 }
+
+#[test]
+fn load_startup_bundle_deduplicates_identical_text_across_user_and_project_scopes() {
+    let (_tmp, config) = init_config();
+    let user_scope = ScopeRef::new(ScopeType::User, "default").unwrap();
+    let project_scope = ScopeRef::new(ScopeType::Project, "memfold").unwrap();
+
+    write_stable_file(
+        &config.root.join("memory").join("user").join("stable").join("preferences.md"),
+        "## item_key: user.preference.language\n\
+title: Default language\n\
+status: stable\n\
+autoload: boot_user\n\
+claim_fingerprint: cfp_lang\n\
+content_hash: sha256:lang\n\
+revision: 1\n\n\
+用户要求默认中文\n",
+    );
+    write_stable_file(
+        &config
+            .root
+            .join("memory")
+            .join("repos")
+            .join("memfold")
+            .join("stable")
+            .join("project-card.md"),
+        "## item_key: project.rule.same_text\n\
+title: Same text\n\
+status: stable\n\
+autoload: boot_project\n\
+claim_fingerprint: cfp_same\n\
+content_hash: sha256:same\n\
+revision: 1\n\n\
+用户要求默认中文\n",
+    );
+
+    compile_scope_bundle(&config, &user_scope, 100).unwrap();
+    compile_scope_bundle(&config, &project_scope, 100).unwrap();
+
+    let load = load_startup_bundle(&config, &project_scope, Mode::Normal, None).unwrap();
+    assert_eq!(load.items.len(), 1);
+    assert_eq!(load.total_tokens_estimate, 1);
+    assert_eq!(load.items[0].text, "用户要求默认中文");
+}
