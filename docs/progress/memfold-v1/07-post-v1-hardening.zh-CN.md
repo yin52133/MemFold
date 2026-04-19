@@ -1,6 +1,6 @@
 # MemFold V1 Post-Wave Hardening
 
-状态：`in_progress`
+状态：`done`
 
 ## 1. 目标
 
