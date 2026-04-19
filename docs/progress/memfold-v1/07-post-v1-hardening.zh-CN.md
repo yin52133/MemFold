@@ -25,14 +25,14 @@
 - `./scripts/deploy_codex_global.sh` 可在当前分支上反复通过
 - `~/.codex/memfold` 当前 startup load 只保留 canonical `clean_truth` memory
 - verify 产生的 smoke memory / smoke session / smoke history / smoke feedback 审计残留已被清到可控范围
-- 重复 deploy/verify 不再持续增长 verify raw-trace evidence、verify session 目录或 verify cleanup feedback rows
+- 重复 deploy/verify 不再持续增长 verify raw-trace evidence、verify session 目录、verify cleanup feedback rows，也不再留下 verify tombstone
 
 最新实测快照：
 
 - startup load item count: `1`
 - verify session rows / verify session dirs: `0 / 0`
 - `feedback_events where reason='verify cleanup'`: `0`
-- `tombstones where claim_fingerprint='cfp_verify_raw_trace'`: `1`
+- `tombstones where claim_fingerprint='cfp_verify_raw_trace'`: `0`
 
 ## 4. 当前结论
 
