@@ -77,7 +77,7 @@ embedding 可用时：
 
 - 使用 embedding + 词法混合评分
 - 原始 query 或归一化 query 的精确命中，会优先于泛化 token 重叠结果
-- 一旦存在精确 token 类 query 命中，结果会收敛到 exact hits，而不是继续混入泛化 history 噪音
+- 一旦存在精确 token 类 query 命中，结果会收敛到 exact hits，而不是继续混入泛化 history 噪音；自然语言 query 仍会保留其它相关结果
 - 有 `raw_text` 的 `session_log` 会参与检索
 - `stable / history / session_log` 的重复摘要会去重
 - 如果 raw-text 命中的 claim 已经晋升为 `stable`，优先返回 `stable`

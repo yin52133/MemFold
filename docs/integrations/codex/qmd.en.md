@@ -77,7 +77,7 @@ When embeddings are enabled:
 
 - search uses embedding + lexical scoring
 - exact raw or normalized query matches outrank generic token-overlap hits
-- once an exact token-like query match exists, search narrows results to exact matches instead of mixing in generic history noise
+- once an exact token-like query match exists, search narrows results to exact matches instead of mixing in generic history noise; natural-language queries still keep additional related results
 - `session_log.raw_text` participates in retrieval when present
 - identical summaries are deduplicated across `stable / history / session_log`
 - if a raw-text hit maps to a promoted stable claim, search returns the stable item instead of the session-log row
