@@ -2,7 +2,7 @@
 
 - 状态：`done`
 - 项目：`memfold-v1`
-- 最后更新：`2026-04-12`
+- 最后更新：`2026-04-19`
 - 主控：`controller`
 
 ## 1. 里程碑
@@ -58,3 +58,4 @@
 - `2026-04-12`: Wave 2 完成并勾选 Gate B，当前进入 retrieval/index 与 feedback/dream/repair 阶段
 - `2026-04-12`: Wave 3、4、5 已全部完成，Gate C/D/E 勾选，核心 E2E 跑通
 - `2026-04-12`: Wave 6 完成并勾选 Gate F，MemFold V1 全部收口
+- `2026-04-19`: 补充 `07-post-v1-hardening.zh-CN.md`，记录 V1 发货后的 retrieval/repair/deploy/verify 连续加固结果；当前真实全局部署态已重新同步并通过 end-to-end verify

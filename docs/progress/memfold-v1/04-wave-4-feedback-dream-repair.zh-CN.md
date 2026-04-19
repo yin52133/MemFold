@@ -51,3 +51,4 @@
 - `2026-04-12`: 切换为 `in_progress`，开始 feedback/dream/repair 实施
 - `2026-04-12`: Wave 4 完成，反馈、dream、repair 与相关 CLI/E2E 全部通过
 - `2026-04-12`: 修复 scheduled dream 对 mixed timestamp format 的兼容性回归，避免 cooldown 门控因旧格式时间戳解析失败而误拒绝运行
+- `2026-04-19`: Post-wave hardening：补齐 user raw trace promotion 约束、rejected claim sidecar/search 过滤、repair 对 tombstoned stable 的清理、以及 verify smoke memory/session/history 的清场与幂等化

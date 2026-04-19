@@ -45,3 +45,4 @@
 - `2026-04-12`: 初始化 Wave 3 进度文件
 - `2026-04-12`: 切换为 `in_progress`，开始 retrieval/index 实施
 - `2026-04-12`: Wave 3 完成，检索、qmd sync、bundle compile 路径与 CLI E2E 全部打通
+- `2026-04-19`: Post-wave hardening：补上 raw_text-aware retrieval、exact-token 优先级、exact-only token 收敛、stable-over-session promotion、以及 startup text dedupe 的后续加固与回归
