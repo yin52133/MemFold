@@ -547,6 +547,55 @@ fn search_memories_ignores_cjk_punctuation_during_lexical_match() {
     assert_eq!(result.results[0].source_type, "session_log");
 }
 
+#[test]
+fn search_memories_prefers_exact_hyphenated_token_match_over_generic_history_hits() {
+    let (_tmp, config) = init_config();
+    let scope = ScopeRef::new(ScopeType::Project, "memfold").unwrap();
+
+    let history_dir = config
+        .root
+        .join("memory")
+        .join("repos")
+        .join("memfold")
+        .join("history")
+        .join("daily");
+    fs::create_dir_all(&history_dir).unwrap();
+    fs::write(
+        history_dir.join("2026-04-19.md"),
+        concat!(
+            "<!-- session: hist_1 | summary_id: hs_1 -->\n",
+            "## 2026-04-19T12:00:00Z [manual] MemFold launcher verify 1776603189\n",
+            "- [decision] MemFold launcher verify 1776603189\n\n",
+            "<!-- session: hist_2 | summary_id: hs_2 -->\n",
+            "## 2026-04-19T12:01:00Z [manual] MemFold launcher verify 1776603210\n",
+            "- [decision] MemFold launcher verify 1776603210\n"
+        ),
+    )
+    .unwrap();
+
+    write_evidence(
+        &config,
+        &WriteEvidenceInput {
+            scope: scope.clone(),
+            session_id: "sess_exact_token".to_string(),
+            source_kind: SourceKind::Decision,
+            summary: "MemFold hook verify verify-token-abc123".to_string(),
+            raw_text: None,
+            promotable: false,
+            origin_mode: Mode::Normal,
+            claim_fingerprint: None,
+        },
+    )
+    .unwrap();
+
+    sync_scope(&config, &scope).unwrap();
+    let result = search_memories(&config, &scope, Intent::Continue, "verify-token-abc123", 80).unwrap();
+
+    assert!(!result.results.is_empty());
+    assert_eq!(result.results[0].source_type, "session_log");
+    assert_eq!(result.results[0].summary, "MemFold hook verify verify-token-abc123");
+}
+
 fn write_qmd_records(
     config: &MemfoldConfig,
     scope: &ScopeRef,

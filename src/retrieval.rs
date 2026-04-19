@@ -54,12 +54,23 @@ pub fn search_memories(
         .collect::<Vec<_>>();
     let query_tokens = normalize_tokens(query);
     let query_embedding = query_embedding(config, query);
+    let mut exact_matches = records
+        .iter()
+        .map(|record| {
+            let search_text = record
+                .raw_text
+                .as_deref()
+                .map(|raw| format!("{} {}", record.summary, raw))
+                .unwrap_or_else(|| record.summary.clone());
+            (record.doc_id.clone(), exact_match_bonus(&search_text, query) > 0)
+        })
+        .collect::<HashMap<_, _>>();
     let mut scores = records
         .iter()
         .map(|record| {
             (
                 record.doc_id.clone(),
-                score_record(record, &query_tokens, query_embedding.as_deref()),
+                score_record(record, query, &query_tokens, query_embedding.as_deref()),
             )
         })
         .collect::<HashMap<_, _>>();
@@ -90,6 +101,9 @@ pub fn search_memories(
         }
         let stable_score = scores.entry(stable_doc_id.clone()).or_insert(0);
         *stable_score = (*stable_score).max(score);
+        if exact_matches.get(&record.doc_id).copied().unwrap_or(false) {
+            exact_matches.insert(stable_doc_id.clone(), true);
+        }
     }
 
     let mut records = records
@@ -98,11 +112,13 @@ pub fn search_memories(
         .collect::<Vec<_>>();
     records.sort_by(|left, right| {
         let left_key = (
+            std::cmp::Reverse(exact_matches.get(&left.doc_id).copied().unwrap_or(false)),
             source_priority(&left.source_type, intent),
             std::cmp::Reverse(scores.get(&left.doc_id).copied().unwrap_or(0)),
             left.pointer.clone(),
         );
         let right_key = (
+            std::cmp::Reverse(exact_matches.get(&right.doc_id).copied().unwrap_or(false)),
             source_priority(&right.source_type, intent),
             std::cmp::Reverse(scores.get(&right.doc_id).copied().unwrap_or(0)),
             right.pointer.clone(),
@@ -138,12 +154,18 @@ pub fn search_memories(
     Ok(SearchResponse { results })
 }
 
-fn score_record(record: &QmdRecord, query_tokens: &[String], query_embedding: Option<&[f32]>) -> usize {
+fn score_record(
+    record: &QmdRecord,
+    query: &str,
+    query_tokens: &[String],
+    query_embedding: Option<&[f32]>,
+) -> usize {
     let search_text = record
         .raw_text
         .as_deref()
         .map(|raw| format!("{} {}", record.summary, raw))
         .unwrap_or_else(|| record.summary.clone());
+    let exact_bonus = exact_match_bonus(&search_text, query);
     let haystack = normalize_tokens(&search_text);
     let summary_lower = normalized_search_text(&search_text);
     let lexical = query_tokens
@@ -176,7 +198,7 @@ fn score_record(record: &QmdRecord, query_tokens: &[String], query_embedding: Op
         _ => 0,
     };
 
-    lexical + semantic
+    lexical + semantic + exact_bonus
 }
 
 fn source_priority(source_type: &str, intent: Intent) -> u8 {
@@ -231,6 +253,19 @@ fn normalized_search_text(text: &str) -> String {
         .filter(|ch| ch.is_alphanumeric())
         .flat_map(|ch| ch.to_lowercase())
         .collect()
+}
+
+fn exact_match_bonus(search_text: &str, query: &str) -> usize {
+    let raw_query = query.trim().to_lowercase();
+    let normalized_query = normalized_search_text(query);
+    let raw_match = !raw_query.is_empty() && search_text.to_lowercase().contains(&raw_query);
+    let normalized_match =
+        normalized_query.len() >= 6 && normalized_search_text(search_text).contains(&normalized_query);
+    if raw_match || normalized_match {
+        100
+    } else {
+        0
+    }
 }
 
 fn cosine_similarity(left: &[f32], right: &[f32]) -> f32 {
