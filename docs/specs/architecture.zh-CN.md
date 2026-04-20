@@ -25,13 +25,22 @@ Out of scope:
 ## 3. System Boundaries
 
 ```text
-Codex / Claude Code / other host
-  └── calls ──► memfold CLI
-                  ├── reads/writes ──► ~/.codex/memfold/memory/
-                  ├── reads/writes ──► ~/.codex/memfold/state/memfold.db
-                  ├── reads/writes ──► ~/.codex/memfold/qmd/
-                  └── writes       ──► ~/.codex/memfold/runtime/logs/
+Codex
+  └── calls (env vars) ──► memfold CLI ──► ~/.codex/memfold/
+                                              ├── memory/
+                                              ├── state/memfold.db
+                                              ├── qmd/
+                                              └── runtime/logs/
+
+Claude Code
+  └── calls (stdin JSON) ──► memfold CLI ──► ~/.claude/memfold/
+                                                ├── memory/
+                                                ├── state/memfold.db
+                                                ├── qmd/
+                                                └── runtime/logs/
 ```
+
+两个宿主共享同一个 memfold 二进制，但记忆完全隔离。
 
 MemFold 负责：
 - scope 路由

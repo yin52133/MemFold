@@ -4,11 +4,15 @@
 
 ## 1. 根目录
 
-MemFold 的运行根目录固定为：
+MemFold 的运行根目录由宿主决定：
 
-```text
-~/.codex/memfold/
-```
+| 宿主 | 根目录 | 说明 |
+|------|--------|------|
+| Codex | `~/.codex/memfold/` | Codex 全局部署路径 |
+| Claude Code | `~/.claude/memfold/` | Claude Code 全局部署路径 |
+| 自定义 | `$MEMFOLD_ROOT` | 通过环境变量覆盖 |
+
+两个宿主的记忆**完全隔离**，各自拥有独立的 memory/state/qmd/runtime 目录。
 
 ## 2. Canonical 布局
 

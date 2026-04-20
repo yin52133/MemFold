@@ -2,19 +2,28 @@
 
 [English](./README.md) | [中文](./README.zh-CN.md)
 
-面向 **Codex memory** 的分层记忆框架。它把 `hook + skill/tool + qmd + dreaming` 组合成一套本地、可审计、可回放、可离线验证的记忆系统，而不是把所有历史粗暴塞回上下文。
+面向 **Codex / Claude Code** 的分层记忆框架。它把 `hook + skill/tool + qmd + dreaming` 组合成一套本地、可审计、可回放、可离线验证的记忆系统，而不是把所有历史粗暴塞回上下文。
 
 ## 仓库定位
 
-这个仓库不是通用“聊天记忆 demo”，而是专门围绕 **Codex 的记忆机制** 搭建：
+这个仓库不是通用”聊天记忆 demo”，而是专门围绕 **Codex 和 Claude Code 的记忆机制** 搭建：
 
-- 针对 Codex session 启动、工作中、退出时的行为
-- 针对 Codex 的 hook、skill、plugin command、全局部署
-- 针对 Codex 场景下的 startup context、evidence capture、dreaming consolidation、QMD retrieval
+- 针对两个宿主的 session 启动、工作中、退出时的行为
+- 针对各自的 hook、skill、部署（各自独立存储）
+- 针对 startup context、evidence capture、dreaming consolidation、QMD retrieval
+
+## 支持的宿主
+
+| 宿主 | 存储根目录 | Hook 协议 | 部署脚本 |
+|------|-----------|-----------|----------|
+| Codex | `~/.codex/memfold/` | 环境变量 | `scripts/deploy_codex_global.sh` |
+| Claude Code | `~/.claude/memfold/` | stdin JSON | `scripts/deploy_claude_global.sh` |
+
+两个宿主的记忆**完全隔离**——各自拥有独立的 memory、state、QMD 和 runtime 目录。
 
 ## 为什么要做
 
-Codex 长时间在多个项目里工作时，记忆系统通常会坏在两个方向：
+Agent 长时间在多个项目里工作时，记忆系统通常会坏在两个方向：
 
 - 什么都带着走：token 膨胀、旧错误路径污染新任务、旧项目判断侵入当前项目
 - 什么都不敢记：稳定偏好总丢、项目约束总丢、每次 session 都像第一次进项目
@@ -66,7 +75,7 @@ boot -> stable -> wiki -> archive -> evidence
 ## 核心工作流
 
 ```text
-Codex session start
+Session start（Codex 或 Claude Code）
   -> hook/session_start
   -> memfold init
   -> memfold load
@@ -75,7 +84,7 @@ Codex session start
   -> 注入最小 bundle
 
 工作进行中
-  -> hook/turn_end 记录 promotable=0 的过滤摘要
+  -> hook/turn_end（Codex）或 hook/Stop（Claude Code）记录过滤摘要
   -> skill/tool 在需要时写 promotable=1 / search / feedback
   -> 只有调用方显式提供时才保存 user `raw_text`
   -> 启动注入会跨 user/project scope 去重相同正文
@@ -146,9 +155,12 @@ src/                         核心引擎
 hooks/                       canonical hook source
   local/                     仓库内自测版
   codex-global/              全局 Codex 部署态
+  claude-code/               全局 Claude Code 部署态
 skills/                      canonical skill source
+  claude-code/               Claude Code skills（SKILL.md + frontmatter）
 plugins/                     Codex plugin / slash command source
 docs/integrations/codex/     Codex 部署与接入文档
+docs/integrations/claude-code/  Claude Code 部署与接入文档
 scripts/                     部署 / 验证脚本
 tests/                       回归与 E2E
 ```
@@ -201,6 +213,8 @@ tests/                       回归与 E2E
 
 ## 全局部署
 
+### Codex
+
 全局部署目标：
 
 ```bash
@@ -225,7 +239,27 @@ tests/                       回归与 E2E
 cdx-memfold
 ```
 
-说明：
+### Claude Code
+
+全局部署目标：
+
+```bash
+~/.claude/memfold
+```
+
+标准安装 / 更新 / 重部署入口：
+
+```bash
+./scripts/deploy_claude_global.sh
+```
+
+独立健康检查：
+
+```bash
+./scripts/verify_claude_global.sh
+```
+
+### 部署行为
 
 - deploy 会重建 binary、刷新 launcher / hooks / plugin source、清理 plugin cache、先执行一次 `memfold repair`、刷新 QMD，然后跑 verify
 - 如果 verify 仍判断为“可修复漂移”，deploy 还会再补一次 `memfold repair`
@@ -235,6 +269,20 @@ cdx-memfold
 - 只做 plugin 安装不是完整部署
 - verify 现在会真实走一遍 raw-text memory 路径（`write-evidence -> dream run -> search`），并在最后清理自己的 smoke memory、verify session/history 残留，以及 verify mutation 行
 - 现在预期重复 deploy/verify 也保持幂等，不再持续累积 smoke memory 残留
+
+## 记忆迁移
+
+在 Codex 和 Claude Code 之间迁移记忆：
+
+```bash
+./scripts/migrate_memory.sh codex-to-claude              # Codex → Claude Code
+./scripts/migrate_memory.sh claude-to-codex              # Claude Code → Codex
+./scripts/migrate_memory.sh sync                          # 双向同步
+./scripts/migrate_memory.sh codex-to-claude --scope-id X  # 指定 scope
+./scripts/migrate_memory.sh codex-to-claude --dry-run     # 预览不复制
+```
+
+迁移层：`stable`、`sessions`、`history`。冲突时逐个询问。迁移后自动执行 `repair` + `bundle compile` + `qmd sync`。
 
 ## 验证
 
@@ -257,6 +305,7 @@ cargo test
 
 - [AGENTS.md](./AGENTS.md)
 - [Codex 集成文档入口](./docs/integrations/codex/README.zh-CN.md)
+- [Claude Code 集成文档入口](./docs/integrations/claude-code/README.zh-CN.md)
 - [Codex QMD Guide](./docs/integrations/codex/qmd.zh-CN.md)
 - [hooks/README.zh-CN.md](./hooks/README.zh-CN.md)
 - [plugins/README.zh-CN.md](./plugins/README.zh-CN.md)

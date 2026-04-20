@@ -20,18 +20,49 @@ Out of scope:
 
 ## 3. System Boundaries
 
+### 3.1 Codex 宿主
+
 ```text
-host hooks
+host hooks (env vars)
   ├── session_start  ──► memfold load
   ├── turn_end       ──► memfold write-evidence
   └── session_end    ──► write-evidence summary + optional dream gate
 
-host skills/tools
+host skills/tools (plugin system)
   ├── search         ──► memfold search
   ├── feedback       ──► memfold feedback
   ├── remember       ──► memfold write-evidence --promotable 1
   └── trace          ──► memfold trace find
 ```
+
+### 3.2 Claude Code 宿主
+
+```text
+host hooks (stdin JSON, settings.json)
+  ├── SessionStart   ──► memfold load
+  ├── Stop           ──► memfold hook capture (turn_end)
+  └── SessionEnd     ──► hook capture + summarize-history + dream gate
+
+host skills (.claude/skills/)
+  ├── memfold-search    ──► memfold search
+  ├── memfold-forget    ──► memfold feedback
+  ├── memfold-remember  ──► memfold write-evidence --promotable 1
+  └── memfold-dream     ──► memfold dream run|maybe-run
+```
+
+### 3.3 宿主差异对照
+
+| 方面 | Codex | Claude Code |
+|------|-------|-------------|
+| Hook 输入 | 环境变量 | stdin JSON |
+| Hook 输出 | stdout 文本 | stdout 文本（注入上下文）|
+| session_id | `MEMFOLD_SESSION_ID` env | stdin `session_id` 字段 |
+| scope 推导 | launcher 设置 env | 从 `cwd` git root 推导 |
+| turn 摘要 | `MEMFOLD_TURN_SUMMARY` env | 最小标记（无直接等价字段）|
+| Skill 格式 | plugin.json + SKILL.md | .claude/skills/ + YAML frontmatter |
+| 存储根目录 | `~/.codex/memfold/` | `~/.claude/memfold/` |
+| Hook 注册 | 全局 hook 目录 | `~/.claude/settings.json` hooks 配置 |
+| 部署脚本 | `scripts/deploy_codex_global.sh` | `scripts/deploy_claude_global.sh` |
 
 ## 4. Source of Truth Declaration
 
@@ -95,6 +126,8 @@ user mentions repo / project / directory
 
 ### 7.1 Hook Inputs
 
+#### Codex（环境变量）
+
 | Variable | Required | Notes |
 |----------|----------|-------|
 | `MEMFOLD_SCOPE_TYPE` | yes | current shipped: `user / project`; target migration extends routing internally |
@@ -102,6 +135,18 @@ user mentions repo / project / directory
 | `MEMFOLD_SESSION_ID` | yes | session identity |
 | `MEMFOLD_MODE` | yes | `normal / fresh / sterile` |
 | `MEMFOLD_SOURCE_KIND` | conditional | entry source kind |
+
+#### Claude Code（stdin JSON）
+
+| Field | Required | Notes |
+|-------|----------|-------|
+| `session_id` | yes | 从 stdin JSON 读取 |
+| `cwd` | yes | 用于推导 scope_id（git root basename）|
+| `hook_event_name` | yes | `SessionStart / Stop / SessionEnd` |
+| `tool_name` | conditional | 仅 tool 相关 hook |
+| `tool_input` | conditional | 仅 tool 相关 hook |
+
+Claude Code hook 中 `scope_type`/`scope_id`/`mode` 通过环境变量覆盖或自动推导。
 
 ### 7.2 Hook Guarantees
 

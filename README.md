@@ -2,19 +2,28 @@
 
 [English](./README.md) | [中文](./README.zh-CN.md)
 
-MemFold is a **Codex memory framework** that combines `hooks + skills/tools + qmd + dreaming` into a local, auditable, replayable, and offline-testable memory system, instead of dumping raw history back into prompt context.
+MemFold is a **Codex / Claude Code memory framework** that combines `hooks + skills/tools + qmd + dreaming` into a local, auditable, replayable, and offline-testable memory system, instead of dumping raw history back into prompt context.
 
 ## Repository Focus
 
-This is not a generic chat-memory demo. It is specifically built for **Codex memory orchestration**:
+This is not a generic chat-memory demo. It is specifically built for **Codex and Claude Code memory orchestration**:
 
-- Codex session startup, work-in-progress capture, and exit handling
-- Codex hooks, skills, plugin commands, and global deployment
+- Session startup, work-in-progress capture, and exit handling for both hosts
+- Host-specific hooks, skills, and global deployment (separate storage per host)
 - startup bundle injection, evidence capture, dreaming consolidation, and QMD retrieval
+
+## Supported Hosts
+
+| Host | Storage Root | Hook Protocol | Deploy Script |
+|------|-------------|---------------|---------------|
+| Codex | `~/.codex/memfold/` | Environment variables | `scripts/deploy_codex_global.sh` |
+| Claude Code | `~/.claude/memfold/` | stdin JSON | `scripts/deploy_claude_global.sh` |
+
+Memory is **fully isolated** between hosts — each has its own memory, state, QMD, and runtime directories.
 
 ## Why It Exists
 
-Codex memory usually fails in two opposite ways:
+Agent memory usually fails in two opposite ways:
 
 - carry everything forward: token bloat and stale-path contamination
 - remember nothing: stable preferences and project constraints keep getting lost
@@ -66,7 +75,7 @@ boot -> stable -> wiki -> archive -> evidence
 ## Core Workflow
 
 ```text
-Codex session start
+Session start (Codex or Claude Code)
   -> hook/session_start
   -> memfold init
   -> memfold load
@@ -75,7 +84,7 @@ Codex session start
   -> inject minimal bundle
 
 During work
-  -> hook/turn_end captures filtered promotable=0 summaries
+  -> hook/turn_end (Codex) or hook/Stop (Claude Code) captures filtered summaries
   -> skills/tools explicitly call write-evidence/search/feedback
   -> user raw_text is only stored when the caller explicitly provides it
   -> startup injection deduplicates identical memory text across user/project scopes
@@ -146,9 +155,12 @@ src/                         core engine
 hooks/                       canonical hook source
   local/                     repo-local self-test hooks
   codex-global/              global Codex deployment hooks
+  claude-code/               global Claude Code deployment hooks
 skills/                      canonical skill source
+  claude-code/               Claude Code skills (SKILL.md with frontmatter)
 plugins/                     Codex plugin / slash command source
 docs/integrations/codex/     Codex deployment and integration docs
+docs/integrations/claude-code/  Claude Code deployment and integration docs
 scripts/                     deployment / verification scripts
 tests/                       regression and E2E coverage
 ```
@@ -204,6 +216,8 @@ Only **state-changing summaries** should go into memory by default:
 
 ## Global Deployment
 
+### Codex
+
 Global target:
 
 ```bash
@@ -228,7 +242,27 @@ Launcher:
 cdx-memfold
 ```
 
-Behavior:
+### Claude Code
+
+Global target:
+
+```bash
+~/.claude/memfold
+```
+
+Standard install / update / redeploy entrypoint:
+
+```bash
+./scripts/deploy_claude_global.sh
+```
+
+Standalone health check:
+
+```bash
+./scripts/verify_claude_global.sh
+```
+
+### Deployment Behavior
 
 - deploy rebuilds the binary, refreshes launcher / hooks / plugin source, clears plugin cache, runs an initial `memfold repair`, refreshes QMD, and then runs verify
 - deploy still falls back to another `memfold repair` when verify reports repairable drift
@@ -238,6 +272,20 @@ Behavior:
 - plugin installation alone is not the full deployment path
 - verify now exercises a raw-text memory round-trip (`write-evidence -> dream run -> search`) and cleans up its own smoke memory, verify session/history residue, and verify mutation rows before the final repair pass
 - repeated deploy/verify runs are now expected to stay idempotent rather than accumulating smoke memory residue
+
+## Memory Migration
+
+Migrate memory between Codex and Claude Code:
+
+```bash
+./scripts/migrate_memory.sh codex-to-claude              # Codex → Claude Code
+./scripts/migrate_memory.sh claude-to-codex              # Claude Code → Codex
+./scripts/migrate_memory.sh sync                          # Bidirectional
+./scripts/migrate_memory.sh codex-to-claude --scope-id X  # Specific scope
+./scripts/migrate_memory.sh codex-to-claude --dry-run     # Preview only
+```
+
+Migrates `stable`, `sessions`, `history`. Prompts on conflict. Runs `repair` + `bundle compile` + `qmd sync` after.
 
 ## Validation
 
@@ -260,6 +308,7 @@ Current coverage includes:
 
 - [AGENTS.md](./AGENTS.md)
 - [Codex Integration Docs](./docs/integrations/codex/README.en.md)
+- [Claude Code Integration Docs](./docs/integrations/claude-code/README.en.md)
 - [Codex QMD Guide](./docs/integrations/codex/qmd.en.md)
 - [Hooks Overview](./hooks/README.en.md)
 - [Skills Overview](./plugins/README.en.md)
